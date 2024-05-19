@@ -1,6 +1,6 @@
 <?php
 
-namespace Bpzr\Tests\Fixtures\Entity;
+namespace Bpzr\Tests\Fixture\Entity;
 
 readonly abstract class NonInstantiableEntityFixture
 {

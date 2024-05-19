@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Bpzr\Tests\Fixtures\Enum;
+namespace Bpzr\Tests\Fixture\Enum;
 
 enum UserTypeEnum: string
 {

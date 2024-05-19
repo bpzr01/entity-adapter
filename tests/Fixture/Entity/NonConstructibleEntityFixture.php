@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Bpzr\Tests\Fixtures\Entity;
+namespace Bpzr\Tests\Fixture\Entity;
 
 class NonConstructibleEntityFixture
 {

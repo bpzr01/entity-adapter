@@ -2,15 +2,17 @@
 
 declare(strict_types=1);
 
-namespace Bpzr\Tests\Fixtures\Entity;
+namespace Bpzr\Tests\Fixture\Entity;
 
-use Bpzr\Tests\Fixtures\Enum\UserTypeEnum;
+use Bpzr\EntityHydrator\Attribute\Contingent;
+use Bpzr\Tests\Fixture\Enum\UserTypeEnum;
 use DateTimeImmutable;
 
 readonly class UserEntityFixture
 {
     public function __construct(
-        private int $id,
+        #[Contingent]
+        private ?int $id,
         private ?string $username,
         private string $password,
         private bool $isSubscriber,
@@ -54,5 +56,10 @@ readonly class UserEntityFixture
     public function getUserType(): UserTypeEnum
     {
         return $this->userType;
+    }
+
+    public function getConfig(): string
+    {
+        return $this->config;
     }
 }

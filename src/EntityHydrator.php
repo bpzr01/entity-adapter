@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Bpzr\EntityHydrator;
 
+use Bpzr\EntityHydrator\Attribute\Contingent;
 use Bpzr\EntityHydrator\Exception\EntityHydratorException;
 use Bpzr\EntityHydrator\Utils\StringUtils;
 use Bpzr\EntityHydrator\ValueConvertor\Abstract\ValueConvertorInterface;
@@ -63,15 +64,16 @@ readonly class EntityHydrator
     /**
      * @template T
      * @param class-string<T> $entityFqn
+     * @param array{class-string<T>, string}|null $resultKeyExtractMethod hydrated class FQN => method name
      * @return array<T>
      */
-    public function createAll(string $entityFqn, Result $query, ?array $indexByGetter = null): array
+    public function createAll(string $entityFqn, Result $query, ?array $resultKeyExtractMethod = null): array
     {
-        $keyPropertyGetter = $indexByGetter === null
-            ? null
-            : $this->getValidGetterMethodName($entityFqn, $indexByGetter);
-
         $entityReflection = $this->prepareEntityReflection($entityFqn);
+
+        $keyExtractMethodName = $resultKeyExtractMethod === null
+            ? null
+            : $this->getValidKeyExtractMethodName($entityReflection, $resultKeyExtractMethod);
 
         $rows = $this->useGeneratorRowCountThreshold === null
             || $this->useGeneratorRowCountThreshold > $query->rowCount()
@@ -83,9 +85,17 @@ readonly class EntityHydrator
         foreach ($rows as $row) {
             $entity = $this->createEntity($entityFqn, $entityReflection, $row);
 
-            $keyPropertyGetter === null
-                ? $entities[] = $entity
-                : $entities[$entity->$keyPropertyGetter()] = $entity;
+            if ($keyExtractMethodName === null) {
+                $entities[] = $entity;
+            } else {
+                $key = $entity->$keyExtractMethodName();
+
+                if (array_key_exists($key, $entities)) {
+                    throw $this->generateEntityHydratorException($entityFqn, 'Result keys must be unique');
+                }
+
+                $entities[$key] = $entity;
+            }
         }
 
         return $entities;
@@ -108,6 +118,7 @@ readonly class EntityHydrator
 
     /**
      * @param array<string, mixed> $rowAssoc
+     *
      * @template T
      * @param class-string<T> $entityFqn
      * @return T
@@ -122,35 +133,52 @@ readonly class EntityHydrator
         $args = [];
 
         foreach ($constructorParams as $constructorParam) {
-            if ($constructorParam->getType() === null) {
-                throw $this->generateEntityHydratorException($entityFqn, 'Property is missing type hint');
+            $constructorParamType = $constructorParam->getType();
+            $constructorParamName = $constructorParam->getName();
+
+            if ($constructorParamType === null) {
+                throw $this->generateEntityHydratorException(
+                    $entityFqn,
+                    "Property {$constructorParamName} is missing type hint",
+                );
             }
 
-            $paramName = StringUtils::camelToSnakeCase($constructorParam->getName());
+            $columnName = StringUtils::camelToSnakeCase($constructorParamName);
 
-            $value = $rowAssoc[$paramName] ?? throw $this->generateEntityHydratorException(
-                $entityFqn,
-                'Could not get value by database column name ' . $paramName,
-            );
+            if (! array_key_exists($columnName, $rowAssoc)) {
+                throw $this->generateEntityHydratorException(
+                    $entityFqn,
+                    "Could not get value of property {$constructorParamName} by database column {$columnName}",
+                );
+            }
 
-            $constructorParamTypeName = $constructorParam->getType()->getName();
+            $rawValue = $rowAssoc[$columnName];
 
-            if ($value === null) {
-                if (! $constructorParam->getType()->allowsNull()) {
+            $constructorParamTypeName = $constructorParamType->getName();
+
+            if ($rawValue === null) {
+                if (! $constructorParamType->allowsNull()) {
                     throw $this->generateEntityHydratorException(
                         $entityFqn,
-                        "Value of property {$constructorParam->getName()} must not be null in the database",
+                        "Value of property {$constructorParamName} must not be null in the database",
                     );
                 }
 
-                $args[$constructorParam->getName()] = null;
+                if (count($constructorParam->getAttributes(Contingent::class)) !== 0) {
+                    throw $this->generateEntityHydratorException(
+                        $entityFqn,
+                        "Value of contingent property {$constructorParamName} must not be null in the database",
+                    );
+                }
+
+                $args[$constructorParamName] = null;
 
                 continue;
             }
 
             if (array_key_exists($constructorParamTypeName, $convertorCache)) {
-                $args[$constructorParam->getName()] = $convertorCache[$constructorParamTypeName]
-                    ->apply($constructorParamTypeName, $value);
+                $args[$constructorParamName] = $convertorCache[$constructorParamTypeName]
+                    ->apply($constructorParamTypeName, $rawValue);
 
                 continue;
             } else {
@@ -158,7 +186,7 @@ readonly class EntityHydrator
                     if ($valueConvertor->shouldApply($constructorParamTypeName, $entityFqn)) {
                         $convertorCache[$constructorParamTypeName] = $valueConvertor;
 
-                        $args[$constructorParam->getName()] = $valueConvertor->apply($constructorParamTypeName, $value);
+                        $args[$constructorParamName] = $valueConvertor->apply($constructorParamTypeName, $rawValue);
 
                         continue 2;
                     }
@@ -175,31 +203,30 @@ readonly class EntityHydrator
     }
 
     /**
-     * @param array{string, string} $indexByGetter
-     * @return string key getter method name
+     * @template T
+     * @param ReflectionClass<T> $entityReflection
+     * @param array{class-string<T>, string} $resultKeyExtractMethod
+     * @return string entity method name
      */
-    private function getValidGetterMethodName(string $entityFqn, array $indexByGetter): string
-    {
-        if (! is_callable($indexByGetter, syntax_only: true)) {
+    private function getValidKeyExtractMethodName(
+        ReflectionClass $entityReflection,
+        array $resultKeyExtractMethod,
+    ): string {
+        $entityFqn = $entityReflection->getName();
+
+        if (($resultKeyExtractMethod[0] ?? null) !== $entityFqn) {
             throw $this->generateEntityHydratorException(
                 $entityFqn,
-                'indexBy must be valid getter method callback',
+                'Key extractor class method reference must be the same class as the one being hydrated',
             );
         }
 
-        if (($indexByGetter[0] ?? null) !== $entityFqn) {
+        $getterMethodName = $resultKeyExtractMethod[1] ?? null;
+
+        if ($getterMethodName === null || ! $entityReflection->hasMethod($getterMethodName)) {
             throw $this->generateEntityHydratorException(
                 $entityFqn,
-                'indexBy callback class must be the same as than one that is being hydrated',
-            );
-        }
-
-        $getterMethodName = $indexByGetter[1] ?? null;
-
-        if ($getterMethodName === null || ! method_exists($entityFqn, $getterMethodName)) {
-            throw $this->generateEntityHydratorException(
-                $entityFqn,
-                'indexBy callback method must be an existing getter',
+                'Key extractor class method reference must refer to an existing method',
             );
         }
 
