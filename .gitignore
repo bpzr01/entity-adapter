@@ -3,3 +3,4 @@ vendor
 .ddev
 .idea
 public
+src/Entity
