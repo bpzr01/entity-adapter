@@ -17,17 +17,24 @@ use Bpzr\EntityHydrator\ValueConvertor\StringValueConvertor;
 use Doctrine\DBAL\Result;
 use ReflectionClass;
 
-readonly class EntityHydrator
+// TODO: Rename to EntityAdapter
+class EntityHydrator
 {
     /** @var array<ValueConvertorInterface> $valueConvertors */
-    private array $valueConvertors;
+    private readonly array $valueConvertors;
+
+    /** @var array<string, ValueConvertorInterface> $convertorCache constructor param data type name => convertor */
+    private array $valueConvertorCache = [];
+
+    /** @var array<string, string> $columnNameCache constructor param name => column name */
+    private array $columnNameCache = [];
 
     /**
      * @param int|null $useGeneratorRowCountThreshold null - never use generator
      * @param array<ValueConvertorInterface> $additionalValueConvertors
      */
     public function __construct(
-        private ?int $useGeneratorRowCountThreshold = 150,
+        private readonly ?int $useGeneratorRowCountThreshold = 1500,
         array $additionalValueConvertors = [],
     ) {
         $this->valueConvertors = array_merge($additionalValueConvertors, [
@@ -73,7 +80,7 @@ readonly class EntityHydrator
 
         $keyExtractMethodName = $resultKeyExtractMethod === null
             ? null
-            : $this->getValidKeyExtractMethodName($entityReflection, $resultKeyExtractMethod);
+            : $this->prepareKeyExtractMethodName($entityReflection, $resultKeyExtractMethod);
 
         $rows = $this->useGeneratorRowCountThreshold === null
             || $this->useGeneratorRowCountThreshold > $query->rowCount()
@@ -127,9 +134,6 @@ readonly class EntityHydrator
     {
         $constructorParams = $entityReflection->getConstructor()->getParameters();
 
-        /** @var array<string, ValueConvertorInterface> $convertorCache type name => convertor */
-        static $convertorCache = [];
-
         $args = [];
 
         foreach ($constructorParams as $constructorParam) {
@@ -143,7 +147,8 @@ readonly class EntityHydrator
                 );
             }
 
-            $columnName = StringUtils::camelToSnakeCase($constructorParamName);
+            $columnName = $this->columnNameCache[$constructorParamName]
+                ??= StringUtils::camelToSnakeCase($constructorParamName);
 
             if (! array_key_exists($columnName, $rowAssoc)) {
                 throw $this->generateEntityHydratorException(
@@ -154,13 +159,11 @@ readonly class EntityHydrator
 
             $rawValue = $rowAssoc[$columnName];
 
-            $constructorParamTypeName = $constructorParamType->getName();
-
             if ($rawValue === null) {
                 if (! $constructorParamType->allowsNull()) {
                     throw $this->generateEntityHydratorException(
                         $entityFqn,
-                        "Value of property {$constructorParamName} must not be null in the database",
+                        "Value of property {$constructorParamName} is not expected to be nullable",
                     );
                 }
 
@@ -176,15 +179,17 @@ readonly class EntityHydrator
                 continue;
             }
 
-            if (array_key_exists($constructorParamTypeName, $convertorCache)) {
-                $args[$constructorParamName] = $convertorCache[$constructorParamTypeName]
+            $constructorParamTypeName = $constructorParamType->getName();
+
+            if (array_key_exists($constructorParamTypeName, $this->valueConvertorCache)) {
+                $args[$constructorParamName] = $this->valueConvertorCache[$constructorParamTypeName]
                     ->apply($constructorParamTypeName, $rawValue);
 
                 continue;
             } else {
                 foreach ($this->valueConvertors as $valueConvertor) {
                     if ($valueConvertor->shouldApply($constructorParamTypeName, $entityFqn)) {
-                        $convertorCache[$constructorParamTypeName] = $valueConvertor;
+                        $this->valueConvertorCache[$constructorParamTypeName] = $valueConvertor;
 
                         $args[$constructorParamName] = $valueConvertor->apply($constructorParamTypeName, $rawValue);
 
@@ -208,7 +213,7 @@ readonly class EntityHydrator
      * @param array{class-string<T>, string} $resultKeyExtractMethod
      * @return string entity method name
      */
-    private function getValidKeyExtractMethodName(
+    private function prepareKeyExtractMethodName(
         ReflectionClass $entityReflection,
         array $resultKeyExtractMethod,
     ): string {
