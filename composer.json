@@ -14,8 +14,7 @@
     },
     "require": {
       "php": "^8.2",
-      "ext-mbstring": "*",
-        "doctrine/dbal": "^4.0"
+      "doctrine/dbal": "^4.0"
     },
     "require-dev": {
         "symfony/var-dumper": "^7.0",
