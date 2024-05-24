@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Bpzr\EntityHydrator\ValueConvertor;
+namespace Bpzr\EntityAdapter\ValueConvertor;
 
-use Bpzr\EntityHydrator\ValueConvertor\Abstract\ValueConvertorInterface;
+use Bpzr\EntityAdapter\ValueConvertor\Abstract\ValueConvertorInterface;
 
 class BooleanValueConvertor implements ValueConvertorInterface
 {

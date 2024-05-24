@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Bpzr\EntityHydrator\Utils;
+namespace Bpzr\EntityAdapter\Utils;
 
 readonly class StringUtils
 {

@@ -1,10 +1,10 @@
 {
-    "name": "bpzr/entity-hydrator",
+    "name": "bpzr/entity-adapter",
     "version": "1.0.0",
     "type": "library",
     "autoload": {
         "psr-4": {
-            "Bpzr\\EntityHydrator\\": "src/"
+            "Bpzr\\EntityAdapter\\": "src/"
         }
     },
     "autoload-dev": {

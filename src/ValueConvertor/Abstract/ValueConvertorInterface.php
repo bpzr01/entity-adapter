@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Bpzr\EntityHydrator\ValueConvertor\Abstract;
+namespace Bpzr\EntityAdapter\ValueConvertor\Abstract;
 
 interface ValueConvertorInterface
 {

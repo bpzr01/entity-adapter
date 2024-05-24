@@ -1,8 +1,8 @@
 <?php
 
-namespace Bpzr\EntityHydrator\ValueConvertor;
+namespace Bpzr\EntityAdapter\ValueConvertor;
 
-use Bpzr\EntityHydrator\ValueConvertor\Abstract\ValueConvertorInterface;
+use Bpzr\EntityAdapter\ValueConvertor\Abstract\ValueConvertorInterface;
 use DateTimeImmutable;
 
 class DateTimeImmutableValueConvertor implements ValueConvertorInterface

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Bpzr\EntityHydrator\Enum;
+namespace Bpzr\EntityAdapter\Enum;
 
 enum UsernameEnum: string
 {

@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Bpzr\EntityHydrator\Exception;
+namespace Bpzr\EntityAdapter\Exception;
 
 use Exception;
 use Throwable;
 
-final class EntityHydratorException extends Exception
+final class EntityAdapterException extends Exception
 {
     public function __construct(string $message, ?Throwable $previous = null)
     {

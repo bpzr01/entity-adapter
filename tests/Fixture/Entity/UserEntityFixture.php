@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Bpzr\Tests\Fixture\Entity;
 
-use Bpzr\EntityHydrator\Attribute\Contingent;
+use Bpzr\EntityAdapter\Attribute\Contingent;
 use Bpzr\Tests\Fixture\Enum\UserTypeEnum;
 use DateTimeImmutable;
 

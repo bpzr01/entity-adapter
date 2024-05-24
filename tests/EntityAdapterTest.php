@@ -4,14 +4,14 @@ declare(strict_types=1);
 
 namespace Bpzr\Tests;
 
-use Bpzr\EntityHydrator\EntityHydrator;
-use Bpzr\EntityHydrator\Exception\EntityHydratorException;
-use Bpzr\EntityHydrator\ValueConvertor\BackedEnumValueConvertor;
-use Bpzr\EntityHydrator\ValueConvertor\BooleanValueConvertor;
-use Bpzr\EntityHydrator\ValueConvertor\DateTimeImmutableValueConvertor;
-use Bpzr\EntityHydrator\ValueConvertor\FloatValueConvertor;
-use Bpzr\EntityHydrator\ValueConvertor\IntegerValueConvertor;
-use Bpzr\EntityHydrator\ValueConvertor\StringValueConvertor;
+use Bpzr\EntityAdapter\EntityAdapter;
+use Bpzr\EntityAdapter\Exception\EntityAdapterException;
+use Bpzr\EntityAdapter\ValueConvertor\BackedEnumValueConvertor;
+use Bpzr\EntityAdapter\ValueConvertor\BooleanValueConvertor;
+use Bpzr\EntityAdapter\ValueConvertor\DateTimeImmutableValueConvertor;
+use Bpzr\EntityAdapter\ValueConvertor\FloatValueConvertor;
+use Bpzr\EntityAdapter\ValueConvertor\IntegerValueConvertor;
+use Bpzr\EntityAdapter\ValueConvertor\StringValueConvertor;
 use Bpzr\Tests\Fixture\Entity\MissingTypeHintEntityFixture;
 use Bpzr\Tests\Fixture\Entity\NonConstructibleEntityFixture;
 use Bpzr\Tests\Fixture\Entity\NonInstantiableEntityFixture;
@@ -26,7 +26,7 @@ use Generator;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
-class EntityHydratorTest extends TestCase
+class EntityAdapterTest extends TestCase
 {
     public static function createOneThrowsDataProvider(): Generator
     {
@@ -93,10 +93,10 @@ class EntityHydratorTest extends TestCase
     }
 
     /**
-     * @covers \Bpzr\EntityHydrator\EntityHydrator::createOne
-     * @covers \Bpzr\EntityHydrator\EntityHydrator::createEntity
-     * @covers \Bpzr\EntityHydrator\EntityHydrator::prepareEntityReflection
-     * @covers \Bpzr\EntityHydrator\EntityHydrator::generateEntityHydratorException
+     * @covers \Bpzr\EntityAdapter\EntityAdapter::createOne
+     * @covers \Bpzr\EntityAdapter\EntityAdapter::createEntity
+     * @covers \Bpzr\EntityAdapter\EntityAdapter::prepareEntityReflection
+     * @covers \Bpzr\EntityAdapter\EntityAdapter::generateEntityAdapterException
      */
     #[DataProvider('createOneThrowsDataProvider')]
     public function testCreateOneThrows(
@@ -118,47 +118,47 @@ class EntityHydratorTest extends TestCase
 
         if ($expectTooManyRowsException) {
             $this->expectExceptionMessageMatches('/Query must not return more than one row/');
-            $this->expectException(EntityHydratorException::class);
+            $this->expectException(EntityAdapterException::class);
         }
 
         if ($expectEntityIsNotInstantiableException) {
             $this->expectExceptionMessageMatches('/Given class is not instantiable/');
-            $this->expectException(EntityHydratorException::class);
+            $this->expectException(EntityAdapterException::class);
         }
 
         if ($expectEntityIsNotConstructibleException) {
             $this->expectExceptionMessageMatches('/Given class must have a constructor/');
-            $this->expectException(EntityHydratorException::class);
+            $this->expectException(EntityAdapterException::class);
         }
 
         if ($expectCouldNotGetValueByColumnException) {
             $this->expectExceptionMessageMatches(
                 '/Could not get value of property .* by database column .*/'
             );
-            $this->expectException(EntityHydratorException::class);
+            $this->expectException(EntityAdapterException::class);
         }
 
         if ($expectMissingTypeHintException) {
             $this->expectExceptionMessageMatches('/Property .* is missing type hint/');
-            $this->expectException(EntityHydratorException::class);
+            $this->expectException(EntityAdapterException::class);
         }
 
         if ($expectPropertyIsNotNullableException) {
             $this->expectExceptionMessageMatches('/Value of property .* is not expected to be nullable/');
-            $this->expectException(EntityHydratorException::class);
+            $this->expectException(EntityAdapterException::class);
         }
 
         if ($expectContingentPropertyIsNotNullableException) {
             $this->expectExceptionMessageMatches('/Value of contingent property .* must not be null in the database/');
-            $this->expectException(EntityHydratorException::class);
+            $this->expectException(EntityAdapterException::class);
         }
 
         if ($expectUnsupportedDataTypeException) {
             $this->expectExceptionMessageMatches('/Type .* is not supported/');
-            $this->expectException(EntityHydratorException::class);
+            $this->expectException(EntityAdapterException::class);
         }
 
-        (new EntityHydrator())->createOne($entityFqn, $resultMock);
+        (new EntityAdapter())->createOne($entityFqn, $resultMock);
     }
 
     public static function createOneDataProvider(): Generator
@@ -228,10 +228,10 @@ class EntityHydratorTest extends TestCase
     }
 
     /**
-     * @covers \Bpzr\EntityHydrator\EntityHydrator::createOne
-     * @covers \Bpzr\EntityHydrator\EntityHydrator::createEntity
-     * @covers \Bpzr\EntityHydrator\EntityHydrator::prepareEntityReflection
-     * @covers \Bpzr\EntityHydrator\EntityHydrator::generateEntityHydratorException
+     * @covers \Bpzr\EntityAdapter\EntityAdapter::createOne
+     * @covers \Bpzr\EntityAdapter\EntityAdapter::createEntity
+     * @covers \Bpzr\EntityAdapter\EntityAdapter::prepareEntityReflection
+     * @covers \Bpzr\EntityAdapter\EntityAdapter::generateEntityAdapterException
      */
     #[DataProvider('createOneDataProvider')]
     public function testCreateOne(array $queryResult, string $entityFqn, ?object $expected): void {
@@ -241,7 +241,7 @@ class EntityHydratorTest extends TestCase
             ->method('fetchAllAssociative')
             ->willReturn($queryResult);
 
-        $actual = (new EntityHydrator())->createOne($entityFqn, $resultMock);
+        $actual = (new EntityAdapter())->createOne($entityFqn, $resultMock);
 
         $this->assertEquals($expected, $actual);
 
@@ -306,8 +306,8 @@ class EntityHydratorTest extends TestCase
     }
 
     /**
-     * @covers \Bpzr\EntityHydrator\EntityHydrator::prepareKeyExtractMethodName
-     * @covers \Bpzr\EntityHydrator\EntityHydrator::generateEntityHydratorException
+     * @covers \Bpzr\EntityAdapter\EntityAdapter::prepareKeyExtractMethodName
+     * @covers \Bpzr\EntityAdapter\EntityAdapter::generateEntityAdapterException
      */
     #[DataProvider('createAllThrowsDataProvider')]
     public function testCreateAllThrows(
@@ -326,22 +326,22 @@ class EntityHydratorTest extends TestCase
             $this->expectExceptionMessageMatches(
                 '/Key extractor class method reference must be the same class as the one being hydrated/',
             );
-            $this->expectException(EntityHydratorException::class);
+            $this->expectException(EntityAdapterException::class);
         }
 
         if ($expectNonExistingMethodException) {
             $this->expectExceptionMessageMatches(
                 '/Key extractor class method reference must refer to an existing method/',
             );
-            $this->expectException(EntityHydratorException::class);
+            $this->expectException(EntityAdapterException::class);
         }
 
         if ($expectResultKeysAreNotUniqueException) {
             $this->expectExceptionMessageMatches('/Result keys must be unique/');
-            $this->expectException(EntityHydratorException::class);
+            $this->expectException(EntityAdapterException::class);
         }
 
-        (new EntityHydrator())->createAll($entityFqn, $resultMock, $resultKeyExtractor);
+        (new EntityAdapter())->createAll($entityFqn, $resultMock, $resultKeyExtractor);
     }
 
     public static function createAllDataProvider(): Generator
@@ -516,9 +516,9 @@ class EntityHydratorTest extends TestCase
     }
 
     /**
-     * @covers \Bpzr\EntityHydrator\EntityHydrator::createAll
-     * @covers \Bpzr\EntityHydrator\EntityHydrator::createEntity
-     * @covers \Bpzr\EntityHydrator\EntityHydrator::prepareKeyExtractMethodName
+     * @covers \Bpzr\EntityAdapter\EntityAdapter::createAll
+     * @covers \Bpzr\EntityAdapter\EntityAdapter::createEntity
+     * @covers \Bpzr\EntityAdapter\EntityAdapter::prepareKeyExtractMethodName
      */
     #[DataProvider('createAllDataProvider')]
     public function testCreateAll(
@@ -570,7 +570,7 @@ class EntityHydratorTest extends TestCase
             $convertorMocks[] = $convertorMock;
         }
 
-        $actual = (new EntityHydrator($useGeneratorThreshold, $convertorMocks))
+        $actual = (new EntityAdapter($useGeneratorThreshold, $convertorMocks))
             ->createAll($entityFqn, $resultMock, $resultKeyExtractor);
 
         $this->assertEquals($expected, $actual);

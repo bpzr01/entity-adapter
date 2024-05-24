@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Bpzr\EntityHydrator\Entity;
+namespace Bpzr\EntityAdapter\Entity;
 
 readonly class User
 {
