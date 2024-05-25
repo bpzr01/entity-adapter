@@ -4,9 +4,9 @@
 use Bpzr\EntityAdapter\Command\EntityAdapterCheckCommand;
 use Symfony\Component\Console\Application;
 
-require_once __DIR__ . '/vendor/autoload.php';
+require_once 'vendor/autoload.php';
 
-$app = new Application('Entity adapter', '1.0.0');
+$app = new Application('Entity adapter');
 
 $app->add(new EntityAdapterCheckCommand());
 
