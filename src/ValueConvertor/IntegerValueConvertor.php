@@ -9,9 +9,9 @@ use Bpzr\EntityAdapter\ValueConvertor\Abstract\ValueConvertorInterface;
 class IntegerValueConvertor implements ValueConvertorInterface
 {
     /** @inheritDoc */
-    public function shouldApply(string $typeName, string $entityFqn): bool
+    public function shouldApply(string $propertyTypeName, string $entityFqn): bool
     {
-        return $typeName === 'int';
+        return $propertyTypeName === 'int';
     }
 
     /** @inheritDoc */

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Bpzr\EntityAdapter\ValueConvertor;
 
 use Bpzr\EntityAdapter\ValueConvertor\Abstract\ValueConvertorInterface;
@@ -8,9 +10,9 @@ use DateTimeImmutable;
 class DateTimeImmutableValueConvertor implements ValueConvertorInterface
 {
     /** @inheritDoc */
-    public function shouldApply(string $typeName, string $entityFqn): bool
+    public function shouldApply(string $propertyTypeName, string $entityFqn): bool
     {
-        return $typeName === DateTimeImmutable::class;
+        return $propertyTypeName === DateTimeImmutable::class;
     }
 
     /** @inheritDoc */

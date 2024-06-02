@@ -6,7 +6,7 @@ namespace Bpzr\EntityAdapter\Attribute;
 
 use Attribute;
 
-#[Attribute]
-class Contingent
+#[Attribute(Attribute::TARGET_PROPERTY)]
+final readonly class Contingent
 {
 }

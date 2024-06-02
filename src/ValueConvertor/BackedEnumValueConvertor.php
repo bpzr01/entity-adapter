@@ -10,9 +10,9 @@ use Bpzr\EntityAdapter\ValueConvertor\Abstract\ValueConvertorInterface;
 class BackedEnumValueConvertor implements ValueConvertorInterface
 {
     /** @inheritDoc */
-    public function shouldApply(string $typeName, string $entityFqn): bool
+    public function shouldApply(string $propertyTypeName, string $entityFqn): bool
     {
-        return is_subclass_of($typeName, BackedEnum::class);
+        return is_subclass_of($propertyTypeName, BackedEnum::class);
     }
 
     /** @inheritDoc */

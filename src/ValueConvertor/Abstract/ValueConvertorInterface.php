@@ -7,10 +7,10 @@ namespace Bpzr\EntityAdapter\ValueConvertor\Abstract;
 interface ValueConvertorInterface
 {
     /**
-     * @param string|class-string $typeName
+     * @param string|class-string $propertyTypeName
      * @param class-string $entityFqn
      */
-    public function shouldApply(string $typeName, string $entityFqn): bool;
+    public function shouldApply(string $propertyTypeName, string $entityFqn): bool;
 
     /** @param string|class-string $typeName */
     public function apply(string $typeName, mixed $value): mixed;
