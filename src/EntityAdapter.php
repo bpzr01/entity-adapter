@@ -7,43 +7,28 @@ namespace Bpzr\EntityAdapter;
 use Bpzr\EntityAdapter\Exception\EntityAdapterException;
 use Bpzr\EntityAdapter\Attribute\Contingent;
 use Bpzr\EntityAdapter\Utils\StringUtils;
+use Bpzr\EntityAdapter\ValueConvertor\Abstract\ValueConvertorFactoryInterface;
 use Bpzr\EntityAdapter\ValueConvertor\Abstract\ValueConvertorInterface;
-use Bpzr\EntityAdapter\ValueConvertor\BackedEnumValueConvertor;
-use Bpzr\EntityAdapter\ValueConvertor\BooleanValueConvertor;
-use Bpzr\EntityAdapter\ValueConvertor\DateTimeImmutableValueConvertor;
-use Bpzr\EntityAdapter\ValueConvertor\FloatValueConvertor;
-use Bpzr\EntityAdapter\ValueConvertor\IntegerValueConvertor;
-use Bpzr\EntityAdapter\ValueConvertor\StringValueConvertor;
 use Doctrine\DBAL\Result;
 use ReflectionClass;
 
 class EntityAdapter
 {
     /** @var array<ValueConvertorInterface> $valueConvertors */
-    private readonly array $valueConvertors;
+    private array $valueConvertors;
 
     /** @var array<string, ValueConvertorInterface> $convertorCache constructor param data type name => convertor */
     private array $valueConvertorCache = [];
 
-    /** @var array<string, string> $columnNameCache constructor param name => column name */
+    /** @var array<string, string> $columnNameCache constructor param name => DB column name */
     private array $columnNameCache = [];
 
-    /**
-     * @param int|null $useGeneratorRowCountThreshold null - never use generator
-     * @param array<ValueConvertorInterface> $additionalValueConvertors
-     */
+    /** @param int|null $useGeneratorRowCountThreshold null - never use generator */
     public function __construct(
+        private readonly ValueConvertorFactoryInterface $valueConvertorFactory,
         private readonly ?int $useGeneratorRowCountThreshold = 1500,
-        array $additionalValueConvertors = [],
     ) {
-        $this->valueConvertors = array_merge($additionalValueConvertors, [
-            new StringValueConvertor(),
-            new IntegerValueConvertor(),
-            new FloatValueConvertor(),
-            new BooleanValueConvertor(),
-            new DateTimeImmutableValueConvertor(),
-            new BackedEnumValueConvertor(),
-        ]);
+        $this->valueConvertors = $this->valueConvertorFactory->createAll();
     }
 
     /**

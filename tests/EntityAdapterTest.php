@@ -9,6 +9,7 @@ use Bpzr\EntityAdapter\Exception\EntityAdapterException;
 use Bpzr\EntityAdapter\ValueConvertor\BackedEnumValueConvertor;
 use Bpzr\EntityAdapter\ValueConvertor\BooleanValueConvertor;
 use Bpzr\EntityAdapter\ValueConvertor\DateTimeImmutableValueConvertor;
+use Bpzr\EntityAdapter\ValueConvertor\Factory\ValueConvertorFactory;
 use Bpzr\EntityAdapter\ValueConvertor\FloatValueConvertor;
 use Bpzr\EntityAdapter\ValueConvertor\IntegerValueConvertor;
 use Bpzr\EntityAdapter\ValueConvertor\StringValueConvertor;
@@ -158,7 +159,7 @@ class EntityAdapterTest extends TestCase
             $this->expectException(EntityAdapterException::class);
         }
 
-        (new EntityAdapter())->createOne($entityFqn, $resultMock);
+        (new EntityAdapter(new ValueConvertorFactory()))->createOne($entityFqn, $resultMock);
     }
 
     public static function createOneDataProvider(): Generator
@@ -241,7 +242,7 @@ class EntityAdapterTest extends TestCase
             ->method('fetchAllAssociative')
             ->willReturn($queryResult);
 
-        $actual = (new EntityAdapter())->createOne($entityFqn, $resultMock);
+        $actual = (new EntityAdapter(new ValueConvertorFactory()))->createOne($entityFqn, $resultMock);
 
         $this->assertEquals($expected, $actual);
 
@@ -341,7 +342,7 @@ class EntityAdapterTest extends TestCase
             $this->expectException(EntityAdapterException::class);
         }
 
-        (new EntityAdapter())->createAll($entityFqn, $resultMock, $resultKeyExtractor);
+        (new EntityAdapter(new ValueConvertorFactory()))->createAll($entityFqn, $resultMock, $resultKeyExtractor);
     }
 
     public static function createAllDataProvider(): Generator
@@ -570,7 +571,13 @@ class EntityAdapterTest extends TestCase
             $convertorMocks[] = $convertorMock;
         }
 
-        $actual = (new EntityAdapter($useGeneratorThreshold, $convertorMocks))
+        $valueConvertorFactoryMock = $this->createMock(ValueConvertorFactory::class);
+        $valueConvertorFactoryMock
+            ->expects($this->once())
+            ->method('createAll')
+            ->willReturn($convertorMocks);
+
+        $actual = (new EntityAdapter($valueConvertorFactoryMock, $useGeneratorThreshold))
             ->createAll($entityFqn, $resultMock, $resultKeyExtractor);
 
         $this->assertEquals($expected, $actual);
