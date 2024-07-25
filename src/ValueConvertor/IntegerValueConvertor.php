@@ -15,8 +15,23 @@ class IntegerValueConvertor implements ValueConvertorInterface
     }
 
     /** @inheritDoc */
-    public function apply(string $typeName, mixed $value): int
+    public function fromDb(string $typeName, mixed $value, array $subscribedAttributes): int
     {
         return (int) $value;
+    }
+
+    /**
+     * @param int $value
+     * @inheritDoc
+     */
+    public function toDb(mixed $value, array $subscribedAttributes): int
+    {
+        return $value;
+    }
+
+    /** @inheritDoc */
+    public function getSubscribedAttributeFqn(): null
+    {
+        return null;
     }
 }

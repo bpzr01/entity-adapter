@@ -15,8 +15,23 @@ class FloatValueConvertor implements ValueConvertorInterface
     }
 
     /** @inheritDoc */
-    public function apply(string $typeName, mixed $value): float
+    public function fromDb(string $typeName, mixed $value, array $subscribedAttributes): float
     {
         return (float) $value;
+    }
+
+    /**
+     * @param float $value
+     * @inheritDoc
+     */
+    public function toDb(mixed $value, array $subscribedAttributes): float
+    {
+        return $value;
+    }
+
+    /** @inheritDoc */
+    public function getSubscribedAttributeFqn(): null
+    {
+        return null;
     }
 }

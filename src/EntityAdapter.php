@@ -4,13 +4,15 @@ declare(strict_types=1);
 
 namespace Bpzr\EntityAdapter;
 
-use Bpzr\EntityAdapter\Exception\EntityAdapterException;
 use Bpzr\EntityAdapter\Attribute\Contingent;
+use Bpzr\EntityAdapter\Exception\EntityAdapterException;
 use Bpzr\EntityAdapter\Utils\StringUtils;
 use Bpzr\EntityAdapter\ValueConvertor\Abstract\ValueConvertorFactoryInterface;
 use Bpzr\EntityAdapter\ValueConvertor\Abstract\ValueConvertorInterface;
 use Doctrine\DBAL\Result;
+use ReflectionAttribute;
 use ReflectionClass;
+use Throwable;
 
 class EntityAdapter
 {
@@ -165,17 +167,55 @@ class EntityAdapter
 
             $constructorParamTypeName = $constructorParamType->getName();
 
+            // TODO: Refactor and cache
             if (array_key_exists($constructorParamTypeName, $this->valueConvertorCache)) {
-                $args[$constructorParamName] = $this->valueConvertorCache[$constructorParamTypeName]
-                    ->apply($constructorParamTypeName, $rawValue);
+                $valueConvertor = $this->valueConvertorCache[$constructorParamTypeName];
+
+                $subscribedAttributeFqn = $valueConvertor->getSubscribedAttributeFqn();
+
+                $subscribedPropAttributes = $subscribedAttributeFqn === null
+                    ? []
+                    : array_map(
+                        fn (ReflectionAttribute $attribute) => $attribute->newInstance(),
+                        $constructorParam->getAttributes($subscribedAttributeFqn),
+                    );
+
+                try {
+                    $args[$constructorParamName] = $valueConvertor->fromDb(
+                        $constructorParamTypeName,
+                        $rawValue,
+                        $subscribedPropAttributes,
+                    );
+                } catch (Throwable $e) {
+                    throw $this->generateEntityAdapterException($entityFqn, $e->getMessage(), $e);
+                }
 
                 continue;
             } else {
                 foreach ($this->valueConvertors as $valueConvertor) {
-                    if ($valueConvertor->shouldApply($constructorParamTypeName, $entityFqn)) {
+                    $shouldApply = $valueConvertor->shouldApply($constructorParamTypeName, $entityFqn);
+
+                    if ($shouldApply) {
                         $this->valueConvertorCache[$constructorParamTypeName] = $valueConvertor;
 
-                        $args[$constructorParamName] = $valueConvertor->apply($constructorParamTypeName, $rawValue);
+                        $subscribedAttributeFqn = $valueConvertor->getSubscribedAttributeFqn();
+
+                        $subscribedPropAttributes = $subscribedAttributeFqn === null
+                            ? []
+                            : array_map(
+                                fn (ReflectionAttribute $attribute) => $attribute->newInstance(),
+                                $constructorParam->getAttributes($subscribedAttributeFqn),
+                            );
+
+                        try {
+                            $args[$constructorParamName] = $valueConvertor->fromDb(
+                                $constructorParamTypeName,
+                                $rawValue,
+                                $subscribedPropAttributes,
+                            );
+                        } catch (Throwable $e) {
+                            throw $this->generateEntityAdapterException($entityFqn, $e->getMessage(), $e);
+                        }
 
                         continue 2;
                     }
@@ -224,10 +264,16 @@ class EntityAdapter
 
     private function generateEntityAdapterException(
         string $entityFqn,
-        string $additionalMessage,
+        ?string $additionalMessage = null,
+        ?Throwable $previous = null,
     ): EntityAdapterException {
         return new EntityAdapterException(
-            "Creating entity from class {$entityFqn} failed. Error: {$additionalMessage}",
+            "Creating entity from class {$entityFqn} failed." . (
+                $additionalMessage === null
+                    ? ''
+                    : " Error: {$additionalMessage}"
+            ),
+            $previous,
         );
     }
 }

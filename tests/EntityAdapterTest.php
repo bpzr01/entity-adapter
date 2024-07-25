@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace Bpzr\Tests;
 
+use Bpzr\EntityAdapter\Attribute\DateTimeFormat;
 use Bpzr\EntityAdapter\EntityAdapter;
 use Bpzr\EntityAdapter\Exception\EntityAdapterException;
+use Bpzr\EntityAdapter\ValueConvertor\Abstract\ValueConvertorInterface;
 use Bpzr\EntityAdapter\ValueConvertor\BackedEnumValueConvertor;
 use Bpzr\EntityAdapter\ValueConvertor\BooleanValueConvertor;
 use Bpzr\EntityAdapter\ValueConvertor\DateTimeImmutableValueConvertor;
@@ -13,6 +15,9 @@ use Bpzr\EntityAdapter\ValueConvertor\Factory\ValueConvertorFactory;
 use Bpzr\EntityAdapter\ValueConvertor\FloatValueConvertor;
 use Bpzr\EntityAdapter\ValueConvertor\IntegerValueConvertor;
 use Bpzr\EntityAdapter\ValueConvertor\StringValueConvertor;
+use Bpzr\Tests\Fixture\Entity\DateEntityFixture;
+use Bpzr\Tests\Fixture\Entity\InvalidDateFormatEntityFixture;
+use Bpzr\Tests\Fixture\Entity\MissingDateTimeFormatAttributeEntityFixture;
 use Bpzr\Tests\Fixture\Entity\MissingTypeHintEntityFixture;
 use Bpzr\Tests\Fixture\Entity\NonConstructibleEntityFixture;
 use Bpzr\Tests\Fixture\Entity\NonInstantiableEntityFixture;
@@ -91,6 +96,21 @@ class EntityAdapterTest extends TestCase
             'entityFqn' => UnsupportedDataTypeEntityFixture::class,
             'expectUnsupportedDataTypeException' => true,
         ];
+        yield [
+            'queryResult' => [0 => ['id' => 123, 'date' => '2022-02-02 12:12:12', 'name' => 'testName']],
+            'entityFqn' => MissingDateTimeFormatAttributeEntityFixture::class,
+            'expectMissingDateTimeFormatAttributeException' => true,
+        ];
+        yield [
+            'queryResult' => [0 => ['id' => 123, 'date' => 'malformed-date-string', 'name' => 'testName']],
+            'entityFqn' => MissingDateTimeFormatAttributeEntityFixture::class,
+            'expectMissingDateTimeFormatAttributeException' => true,
+        ];
+        yield [
+            'queryResult' => [0 => ['date' => '2022-02-02 12:12']],
+            'entityFqn' => InvalidDateFormatEntityFixture::class,
+            'expectInvalidDateTimeFormatAttributeException' => true,
+        ];
     }
 
     /**
@@ -111,6 +131,8 @@ class EntityAdapterTest extends TestCase
         bool $expectPropertyIsNotNullableException = false,
         bool $expectUnsupportedDataTypeException = false,
         bool $expectContingentPropertyIsNotNullableException = false,
+        bool $expectMissingDateTimeFormatAttributeException = false,
+        bool $expectInvalidDateTimeFormatAttributeException = false,
     ): void {
         $resultMock = $this->createMock(Result::class);
         $resultMock->expects($this->once())
@@ -156,6 +178,16 @@ class EntityAdapterTest extends TestCase
 
         if ($expectUnsupportedDataTypeException) {
             $this->expectExceptionMessageMatches('/Type .* is not supported/');
+            $this->expectException(EntityAdapterException::class);
+        }
+
+        if ($expectMissingDateTimeFormatAttributeException) {
+            $this->expectExceptionMessageMatches('/Missing .* attribute./');
+            $this->expectException(EntityAdapterException::class);
+        }
+
+        if ($expectInvalidDateTimeFormatAttributeException) {
+            $this->expectExceptionMessageMatches('/Failed to create DTI from format:/');
             $this->expectException(EntityAdapterException::class);
         }
 
@@ -552,6 +584,7 @@ class EntityAdapterTest extends TestCase
 
         $convertorMocks = [];
 
+        /** @var class-string<ValueConvertorInterface> $expectedConvertor */
         foreach ($expectedConvertorsToShouldApplyAndApplyRunTimes as $expectedConvertor => $runTimes) {
             $convertorMock = $this->createMock($expectedConvertor);
 
@@ -563,10 +596,10 @@ class EntityAdapterTest extends TestCase
                 );
 
             $convertorMock->expects($this->exactly($runTimes[1]))
-                ->method('apply')
+                ->method('fromDb')
                 ->willReturnCallback(
                     static fn (string $typeName, mixed $value)
-                        => (new $expectedConvertor())->apply($typeName, $value)
+                        => (new $expectedConvertor())->fromDb($typeName, $value, [new DateTimeFormat('Y-m-d H:i:s')])
                 );
             $convertorMocks[] = $convertorMock;
         }
@@ -581,5 +614,46 @@ class EntityAdapterTest extends TestCase
             ->createAll($entityFqn, $resultMock, $resultKeyExtractor);
 
         $this->assertEquals($expected, $actual);
+    }
+
+    public static function subscribedAttributesDataProvider(): Generator
+    {
+        yield [
+            'queryResult' => [
+                0 => [
+                    'date' => '2011-01-01',
+                    'date_time' => '2011-01-01 00:00:00',
+                    'year' => '2011',
+                ],
+                1 => [
+                    'date' => '2022-02-02',
+                    'date_time' => '2022-02-02 10:20:30',
+                    'year' => '2022',
+                ]
+            ],
+            'valueConvertor' => new DateTimeImmutableValueConvertor(),
+        ];
+    }
+
+    #[DataProvider('subscribedAttributesDataProvider')]
+    public function testSubscribedAttributes(array $queryResult, ValueConvertorInterface $valueConvertor): void
+    {
+        $valueConvertorFactoryMock = $this->createMock(ValueConvertorFactory::class);
+
+        $valueConvertorFactoryMock
+            ->expects($this->once())
+            ->method('createAll')
+            ->willReturn([$valueConvertor]);
+
+        $entityAdapter = new EntityAdapter($valueConvertorFactoryMock);
+
+        $resultMock = $this->createMock(Result::class);
+        $resultMock->method('fetchAllAssociative')->willReturn($queryResult);
+
+        $results = $entityAdapter->createAll(DateEntityFixture::class, $resultMock);
+
+        $this->assertSame($queryResult[0]['date'], $results[0]->getDate()->format('Y-m-d'));
+        $this->assertSame($queryResult[0]['date_time'], $results[0]->getDateTime()->format('Y-m-d H:i:s'));
+        $this->assertSame($queryResult[0]['year'], $results[0]->getYear()->format('Y'));
     }
 }

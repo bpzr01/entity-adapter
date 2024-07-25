@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace Bpzr\EntityAdapter\ValueConvertor;
 
+use Bpzr\EntityAdapter\Attribute\DateTimeFormat;
 use Bpzr\EntityAdapter\ValueConvertor\Abstract\ValueConvertorInterface;
 use DateTimeImmutable;
+use RuntimeException;
 
 class DateTimeImmutableValueConvertor implements ValueConvertorInterface
 {
@@ -16,8 +18,46 @@ class DateTimeImmutableValueConvertor implements ValueConvertorInterface
     }
 
     /** @inheritDoc */
-    public function apply(string $typeName, mixed $value): DateTimeImmutable
+    public function fromDb(string $typeName, mixed $value, array $subscribedAttributes): DateTimeImmutable
     {
-        return new DateTimeImmutable($value);
+        $formatAttribute = $this->getFormatAttribute($subscribedAttributes);
+
+        $dti = DateTimeImmutable::createFromFormat($formatAttribute->getFormat(), $value);
+
+        if ($dti === false) {
+            throw new RuntimeException('Failed to create DTI from format: ' . $formatAttribute->getFormat());
+        }
+
+        return $dti;
+    }
+
+    /**
+     * @param DateTimeImmutable $value
+     * @inheritDoc
+     */
+    public function toDb(mixed $value, array $subscribedAttributes): string
+    {
+        $formatAttribute = $this->getFormatAttribute($subscribedAttributes);
+
+        return $value->format($formatAttribute->getFormat());
+    }
+
+    /** @return class-string */
+    public function getSubscribedAttributeFqn(): string
+    {
+        return DateTimeFormat::class;
+    }
+
+    /** @param array<object> $subscribedAttributes */
+    private function getFormatAttribute(array $subscribedAttributes): DateTimeFormat
+    {
+        /** @var DateTimeFormat|null $dateTimeFormatAttribute */
+        $dateTimeFormatAttribute = $subscribedAttributes[0] ?? null;
+
+        if ($dateTimeFormatAttribute === null) {
+            throw new RuntimeException('Missing ' . DateTimeFormat::class . ' attribute.');
+        }
+
+        return $dateTimeFormatAttribute;
     }
 }

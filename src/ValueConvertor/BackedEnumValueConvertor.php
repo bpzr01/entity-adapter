@@ -15,9 +15,27 @@ class BackedEnumValueConvertor implements ValueConvertorInterface
         return is_subclass_of($propertyTypeName, BackedEnum::class);
     }
 
-    /** @inheritDoc */
-    public function apply(string $typeName, mixed $value): BackedEnum
+    /**
+     * @param class-string<BackedEnum> $typeName
+     * @inheritDoc
+     */
+    public function fromDb(string $typeName, mixed $value, array $subscribedAttributes): BackedEnum
     {
         return $typeName::from($value);
+    }
+
+    /**
+     * @param BackedEnum $value
+     * @inheritDoc
+     */
+    public function toDb(mixed $value, array $subscribedAttributes): int|string
+    {
+        return $value->value;
+    }
+
+    /** @inheritDoc */
+    public function getSubscribedAttributeFqn(): null
+    {
+        return null;
     }
 }

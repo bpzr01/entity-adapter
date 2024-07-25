@@ -15,8 +15,23 @@ class StringValueConvertor implements ValueConvertorInterface
     }
 
     /** @inheritDoc */
-    public function apply(string $typeName, mixed $value): string
+    public function fromDb(string $typeName, mixed $value, array $subscribedAttributes): string
     {
         return (string) $value;
+    }
+
+    /**
+     * @param string $value
+     * @inheritDoc
+     */
+    public function toDb(mixed $value, array $subscribedAttributes): string
+    {
+        return $value;
+    }
+
+    /** @inheritDoc */
+    public function getSubscribedAttributeFqn(): null
+    {
+        return null;
     }
 }
