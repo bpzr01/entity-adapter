@@ -75,14 +75,15 @@ class EntityAdapter
             ? null
             : $this->prepareKeyExtractMethodName($entityReflection, $resultKeyExtractMethod);
 
-        $rows = $this->useGeneratorRowCountThreshold === null
-            || $this->useGeneratorRowCountThreshold > $query->rowCount()
-                ? $query->fetchAllAssociative()
-                : $query->iterateAssociative();
+        $rowCount = $query->rowCount();
 
-        if (iterator_count($rows) === 0) {
+        if ($rowCount === 0) {
             return [];
         }
+
+        $rows = $this->useGeneratorRowCountThreshold === null || $this->useGeneratorRowCountThreshold > $rowCount
+            ? $query->fetchAllAssociative()
+            : $query->iterateAssociative();
 
         $entityParams = $this->prepareParams($entityFqn, $entityReflection);
 
@@ -248,7 +249,7 @@ class EntityAdapter
             $subscribedPropAttributes = $subscribedAttributeFqn === null
                 ? []
                 : array_map(
-                    fn (ReflectionAttribute $attribute) => $attribute->newInstance(),
+                    fn (ReflectionAttribute $attribute): object => $attribute->newInstance(),
                     $reflectionParam->getAttributes($subscribedAttributeFqn),
                 );
 

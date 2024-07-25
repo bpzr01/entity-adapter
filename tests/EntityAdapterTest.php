@@ -313,7 +313,6 @@ class EntityAdapterTest extends TestCase
                     'is_purchasable' => false,
                     'config' => '{env: dev}',
                 ],
-
             ],
             'resultKeyExtractor' => [ProductEntityFixture::class, 'isPurchasable'],
             'expectResultKeysAreNotUniqueException' => true,
@@ -354,6 +353,7 @@ class EntityAdapterTest extends TestCase
         $resultMock = $this->createMock(Result::class);
 
         $resultMock->method('fetchAllAssociative')->willReturn($queryResult);
+        $resultMock->method('rowCount')->willReturn(count($queryResult));
 
         if ($expectWrongEntityException) {
             $this->expectExceptionMessageMatches(
@@ -379,87 +379,6 @@ class EntityAdapterTest extends TestCase
 
     public static function createAllDataProvider(): Generator
     {
-        yield [
-            'entityFqn' => UserEntityFixture::class,
-            'queryResult' => [],
-            'resultKeyExtractor' => [UserEntityFixture::class, 'getUsername'],
-            'useGeneratorThreshold' => 20,
-            'rowCount' => 20,
-            'willUseGenerator' => true,
-            'expectedConvertorsToRunTimes' => [],
-        ];
-        yield [
-            'entityFqn' => UserEntityFixture::class,
-            'queryResult' => [],
-            'resultKeyExtractor' => [UserEntityFixture::class, 'getUsername'],
-            'useGeneratorThreshold' => 20,
-            'rowCount' => 21,
-            'willUseGenerator' => true,
-            'expectedConvertorsToRunTimes' => [],
-        ];
-        yield [
-            'entityFqn' => UserEntityFixture::class,
-            'queryResult' => [],
-            'resultKeyExtractor' => [UserEntityFixture::class, 'getUsername'],
-            'useGeneratorThreshold' => 20,
-            'rowCount' => 281,
-            'willUseGenerator' => true,
-            'expectedConvertorsToRunTimes' => [],
-        ];
-        yield [
-            'entityFqn' => UserEntityFixture::class,
-            'queryResult' => [],
-            'resultKeyExtractor' => [UserEntityFixture::class, 'getUsername'],
-            'useGeneratorThreshold' => 20,
-            'rowCount' => 19,
-            'willUseGenerator' => false,
-            'expectedConvertorsToRunTimes' => [],
-        ];
-        yield [
-            'entityFqn' => UserEntityFixture::class,
-            'queryResult' => [],
-            'resultKeyExtractor' => [UserEntityFixture::class, 'getUsername'],
-            'useGeneratorThreshold' => 20,
-            'rowCount' => 1,
-            'willUseGenerator' => false,
-            'expectedConvertorsToRunTimes' => [],
-        ];
-        yield [
-            'entityFqn' => UserEntityFixture::class,
-            'queryResult' => [],
-            'resultKeyExtractor' => [UserEntityFixture::class, 'getUsername'],
-            'useGeneratorThreshold' => 20,
-            'rowCount' => 0,
-            'willUseGenerator' => false,
-            'expectedConvertorsToRunTimes' => [],
-        ];
-        yield [
-            'entityFqn' => UserEntityFixture::class,
-            'queryResult' => [],
-            'resultKeyExtractor' => [UserEntityFixture::class, 'getUsername'],
-            'useGeneratorThreshold' => null,
-            'rowCount' => 0,
-            'willUseGenerator' => false,
-            'expectedConvertorsToRunTimes' => [],
-        ];
-        yield [
-            'entityFqn' => UserEntityFixture::class,
-            'queryResult' => [],
-            'resultKeyExtractor' => [UserEntityFixture::class, 'getUsername'],
-            'useGeneratorThreshold' => null,
-            'rowCount' => 100,
-            'willUseGenerator' => false,
-            'expectedConvertorsToRunTimes' => [],
-        ];
-        yield [
-            'entityFqn' => UserEntityFixture::class,
-            'queryResult' => [],
-            'resultKeyExtractor' => [UserEntityFixture::class, 'getUsername'],
-            'useGeneratorThreshold' => null,
-            'rowCount' => 9999,
-            'willUseGenerator' => false,
-            'expectedConvertorsToRunTimes' => [],
-        ];
         yield [
             'entityFqn' => ProductEntityFixture::class,
             'queryResult' => [
@@ -508,7 +427,6 @@ class EntityAdapterTest extends TestCase
             ],
             'resultKeyExtractor' => null,
             'useGeneratorThreshold' => null,
-            'rowCount' => 9999,
             'willUseGenerator' => false,
             'expectedConvertorsToRunTimes' => [
                 IntegerValueConvertor::class => ['shouldApply' => 3, 'fromDb' => 4],
@@ -543,9 +461,8 @@ class EntityAdapterTest extends TestCase
                 ),
             ],
             'resultKeyExtractor' => [UserEntityFixture::class, 'getPassword'],
-            'useGeneratorThreshold' => null,
-            'rowCount' => 9999,
-            'willUseGenerator' => false,
+            'useGeneratorThreshold' => 1,
+            'willUseGenerator' => true,
             'expectedConvertorsToRunTimes' => [
                 IntegerValueConvertor::class => ['shouldApply' => 6, 'fromDb' => 1],
                 StringValueConvertor::class => ['shouldApply' => 5, 'fromDb' => 2],
@@ -568,28 +485,27 @@ class EntityAdapterTest extends TestCase
         array $queryResult,
         ?array $resultKeyExtractor,
         ?int $useGeneratorThreshold,
-        int $rowCount,
         bool $willUseGenerator,
         array $expectedConvertorsToRunTimes,
         array $expected = [],
     ): void {
         $resultMock = $this->createMock(Result::class);
 
-        if ($useGeneratorThreshold !== null) {
-            $resultMock->expects($this->once())->method('rowCount')->willReturn($rowCount);
-        }
+        $resultMock->expects($this->once())->method('rowCount')->willReturn(count($queryResult));
 
-        $willUseGenerator
-            ? $resultMock->expects($this->once())
-                ->method('iterateAssociative')
-                ->willReturnCallback(function () use ($queryResult) {
-                    foreach ($queryResult as $row) {
-                        yield $row;
-                    }
-                })
-            : $resultMock->expects($this->once())
-                ->method('fetchAllAssociative')
-                ->willReturn($queryResult);
+        if (count($queryResult) !== 0) {
+            $willUseGenerator
+                ? $resultMock->expects($this->once())
+                    ->method('iterateAssociative')
+                    ->willReturnCallback(function () use ($queryResult) {
+                        foreach ($queryResult as $row) {
+                            yield $row;
+                        }
+                    })
+                : $resultMock->expects($this->once())
+                    ->method('fetchAllAssociative')
+                    ->willReturn($queryResult);
+        }
 
         $convertorMocks = [];
 
@@ -658,6 +574,7 @@ class EntityAdapterTest extends TestCase
 
         $resultMock = $this->createMock(Result::class);
         $resultMock->method('fetchAllAssociative')->willReturn($queryResult);
+        $resultMock->method('rowCount')->willReturn(2);
 
         $results = $entityAdapter->createAll(DateEntityFixture::class, $resultMock);
 

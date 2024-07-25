@@ -1,6 +1,6 @@
 {
     "name": "bpzr/entity-adapter",
-    "description": "Package provides a flexible and efficient way to map database query results to entity objects",
+    "description": "Package provides a flexible bridge between database queries and entity objects",
     "license": "MIT",
     "type": "library",
     "autoload": {
