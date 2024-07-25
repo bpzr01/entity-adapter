@@ -167,7 +167,7 @@ class EntityAdapterTest extends TestCase
         }
 
         if ($expectPropertyIsNotNullableException) {
-            $this->expectExceptionMessageMatches('/Value of property .* is not expected to be nullable/');
+            $this->expectExceptionMessageMatches('/Value of property .* must not be null in the database/');
             $this->expectException(EntityAdapterException::class);
         }
 
@@ -386,6 +386,7 @@ class EntityAdapterTest extends TestCase
             'useGeneratorThreshold' => 20,
             'rowCount' => 20,
             'willUseGenerator' => true,
+            'expectedConvertorsToRunTimes' => [],
         ];
         yield [
             'entityFqn' => UserEntityFixture::class,
@@ -394,6 +395,7 @@ class EntityAdapterTest extends TestCase
             'useGeneratorThreshold' => 20,
             'rowCount' => 21,
             'willUseGenerator' => true,
+            'expectedConvertorsToRunTimes' => [],
         ];
         yield [
             'entityFqn' => UserEntityFixture::class,
@@ -402,6 +404,7 @@ class EntityAdapterTest extends TestCase
             'useGeneratorThreshold' => 20,
             'rowCount' => 281,
             'willUseGenerator' => true,
+            'expectedConvertorsToRunTimes' => [],
         ];
         yield [
             'entityFqn' => UserEntityFixture::class,
@@ -410,6 +413,7 @@ class EntityAdapterTest extends TestCase
             'useGeneratorThreshold' => 20,
             'rowCount' => 19,
             'willUseGenerator' => false,
+            'expectedConvertorsToRunTimes' => [],
         ];
         yield [
             'entityFqn' => UserEntityFixture::class,
@@ -418,6 +422,7 @@ class EntityAdapterTest extends TestCase
             'useGeneratorThreshold' => 20,
             'rowCount' => 1,
             'willUseGenerator' => false,
+            'expectedConvertorsToRunTimes' => [],
         ];
         yield [
             'entityFqn' => UserEntityFixture::class,
@@ -426,6 +431,7 @@ class EntityAdapterTest extends TestCase
             'useGeneratorThreshold' => 20,
             'rowCount' => 0,
             'willUseGenerator' => false,
+            'expectedConvertorsToRunTimes' => [],
         ];
         yield [
             'entityFqn' => UserEntityFixture::class,
@@ -434,6 +440,7 @@ class EntityAdapterTest extends TestCase
             'useGeneratorThreshold' => null,
             'rowCount' => 0,
             'willUseGenerator' => false,
+            'expectedConvertorsToRunTimes' => [],
         ];
         yield [
             'entityFqn' => UserEntityFixture::class,
@@ -442,6 +449,7 @@ class EntityAdapterTest extends TestCase
             'useGeneratorThreshold' => null,
             'rowCount' => 100,
             'willUseGenerator' => false,
+            'expectedConvertorsToRunTimes' => [],
         ];
         yield [
             'entityFqn' => UserEntityFixture::class,
@@ -450,6 +458,7 @@ class EntityAdapterTest extends TestCase
             'useGeneratorThreshold' => null,
             'rowCount' => 9999,
             'willUseGenerator' => false,
+            'expectedConvertorsToRunTimes' => [],
         ];
         yield [
             'entityFqn' => ProductEntityFixture::class,
@@ -501,10 +510,10 @@ class EntityAdapterTest extends TestCase
             'useGeneratorThreshold' => null,
             'rowCount' => 9999,
             'willUseGenerator' => false,
-            'expectedConvertorsToShouldApplyAndApplyRunTimes' => [
-                IntegerValueConvertor::class => [3, 4],
-                StringValueConvertor::class => [2, 4],
-                BooleanValueConvertor::class => [1, 4],
+            'expectedConvertorsToRunTimes' => [
+                IntegerValueConvertor::class => ['shouldApply' => 3, 'fromDb' => 4],
+                StringValueConvertor::class => ['shouldApply' => 2, 'fromDb' => 4],
+                BooleanValueConvertor::class => ['shouldApply' => 1, 'fromDb' => 4],
             ],
         ];
         yield [
@@ -537,13 +546,13 @@ class EntityAdapterTest extends TestCase
             'useGeneratorThreshold' => null,
             'rowCount' => 9999,
             'willUseGenerator' => false,
-            'expectedConvertorsToShouldApplyAndApplyRunTimes' => [
-                IntegerValueConvertor::class => [6, 1],
-                StringValueConvertor::class => [5, 2],
-                BooleanValueConvertor::class => [4, 1],
-                FloatValueConvertor::class => [3, 1],
-                DateTimeImmutableValueConvertor::class => [2, 1],
-                BackedEnumValueConvertor::class => [1, 1],
+            'expectedConvertorsToRunTimes' => [
+                IntegerValueConvertor::class => ['shouldApply' => 8, 'fromDb' => 1],
+                StringValueConvertor::class => ['shouldApply' => 7, 'fromDb' => 2],
+                BooleanValueConvertor::class => ['shouldApply' => 4, 'fromDb' => 1],
+                FloatValueConvertor::class => ['shouldApply' => 3, 'fromDb' => 1],
+                DateTimeImmutableValueConvertor::class => ['shouldApply' => 2, 'fromDb' => 1],
+                BackedEnumValueConvertor::class => ['shouldApply' => 1, 'fromDb' => 1],
             ],
         ];
     }
@@ -561,7 +570,7 @@ class EntityAdapterTest extends TestCase
         ?int $useGeneratorThreshold,
         int $rowCount,
         bool $willUseGenerator,
-        array $expectedConvertorsToShouldApplyAndApplyRunTimes = [],
+        array $expectedConvertorsToRunTimes,
         array $expected = [],
     ): void {
         $resultMock = $this->createMock(Result::class);
@@ -585,17 +594,17 @@ class EntityAdapterTest extends TestCase
         $convertorMocks = [];
 
         /** @var class-string<ValueConvertorInterface> $expectedConvertor */
-        foreach ($expectedConvertorsToShouldApplyAndApplyRunTimes as $expectedConvertor => $runTimes) {
+        foreach ($expectedConvertorsToRunTimes as $expectedConvertor => $runTimes) {
             $convertorMock = $this->createMock($expectedConvertor);
 
-            $convertorMock->expects($this->exactly($runTimes[0]))
+            $convertorMock->expects($this->exactly($runTimes['shouldApply']))
                 ->method('shouldApply')
                 ->willReturnCallback(
                     static fn (string $typeName, string $entityFqn)
                         => (new $expectedConvertor())->shouldApply($typeName, $entityFqn)
                 );
 
-            $convertorMock->expects($this->exactly($runTimes[1]))
+            $convertorMock->expects($this->exactly($runTimes['fromDb']))
                 ->method('fromDb')
                 ->willReturnCallback(
                     static fn (string $typeName, mixed $value)

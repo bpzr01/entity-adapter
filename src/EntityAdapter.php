@@ -19,12 +19,6 @@ class EntityAdapter
     /** @var array<ValueConvertorInterface> $valueConvertors */
     private array $valueConvertors;
 
-    /** @var array<string, ValueConvertorInterface> $convertorCache constructor param data type name => convertor */
-    private array $valueConvertorCache = [];
-
-    /** @var array<string, string> $columnNameCache constructor param name => DB column name */
-    private array $columnNameCache = [];
-
     /** @param int|null $useGeneratorRowCountThreshold null - never use generator */
     public function __construct(
         private readonly ValueConvertorFactoryInterface $valueConvertorFactory,
@@ -51,7 +45,16 @@ class EntityAdapter
             return null;
         }
 
-        return $this->createEntity($entityFqn, $this->prepareEntityReflection($entityFqn), $rows[0]);
+        $entityReflection = $this->prepareEntityReflection($entityFqn);
+
+        // TODO: This is not optimal - consider using different strategy for this method
+
+        return $this->createEntity(
+            $entityFqn,
+            $entityReflection,
+            $this->prepareParams($entityFqn, $entityReflection),
+            $rows[0],
+        );
     }
 
     /**
@@ -73,10 +76,16 @@ class EntityAdapter
                 ? $query->fetchAllAssociative()
                 : $query->iterateAssociative();
 
+        if (iterator_count($rows) === 0) {
+            return [];
+        }
+
+        $entityParams = $this->prepareParams($entityFqn, $entityReflection);
+
         $entities = [];
 
         foreach ($rows as $row) {
-            $entity = $this->createEntity($entityFqn, $entityReflection, $row);
+            $entity = $this->createEntity($entityFqn, $entityReflection, $entityParams, $row);
 
             if ($keyExtractMethodName === null) {
                 $entities[] = $entity;
@@ -110,122 +119,59 @@ class EntityAdapter
     }
 
     /**
-     * @param array<string, mixed> $rowAssoc
-     *
      * @template T
      * @param class-string<T> $entityFqn
+     * @param array<EntityParam> $entityParams
+     * @param array<string, mixed> $rowAssoc
      * @return T
      */
-    private function createEntity(string $entityFqn, ReflectionClass $entityReflection, array $rowAssoc): object
-    {
-        $constructorParams = $entityReflection->getConstructor()->getParameters();
-
+    private function createEntity(
+        string $entityFqn,
+        ReflectionClass $entityReflection,
+        array $entityParams,
+        array $rowAssoc,
+    ): object {
         $args = [];
 
-        foreach ($constructorParams as $constructorParam) {
-            $constructorParamType = $constructorParam->getType();
-            $constructorParamName = $constructorParam->getName();
-
-            if ($constructorParamType === null) {
+        foreach ($entityParams as $param) {
+            if (! array_key_exists($param->getColumnName(), $rowAssoc)) {
                 throw $this->generateEntityAdapterException(
                     $entityFqn,
-                    "Property {$constructorParamName} is missing type hint",
+                    "Could not get value of property {$param->getName()} by database column {$param->getColumnName()}",
                 );
             }
 
-            $columnName = $this->columnNameCache[$constructorParamName]
-                ??= StringUtils::camelToSnakeCase($constructorParamName);
-
-            if (! array_key_exists($columnName, $rowAssoc)) {
-                throw $this->generateEntityAdapterException(
-                    $entityFqn,
-                    "Could not get value of property {$constructorParamName} by database column {$columnName}",
-                );
-            }
-
-            $rawValue = $rowAssoc[$columnName];
+            $rawValue = $rowAssoc[$param->getColumnName()];
 
             if ($rawValue === null) {
-                if (! $constructorParamType->allowsNull()) {
+                if (! $param->allowsNull()) {
                     throw $this->generateEntityAdapterException(
                         $entityFqn,
-                        "Value of property {$constructorParamName} is not expected to be nullable",
+                        "Value of property {$param->getName()} must not be null in the database",
                     );
                 }
 
-                if (count($constructorParam->getAttributes(Contingent::class)) !== 0) {
+                if ($param->isContingent()) {
                     throw $this->generateEntityAdapterException(
                         $entityFqn,
-                        "Value of contingent property {$constructorParamName} must not be null in the database",
+                        "Value of contingent property {$param->getName()} must not be null in the database",
                     );
                 }
 
-                $args[$constructorParamName] = null;
+                $args[$param->getName()] = null;
 
                 continue;
             }
 
-            $constructorParamTypeName = $constructorParamType->getName();
-
-            // TODO: Refactor and cache
-            if (array_key_exists($constructorParamTypeName, $this->valueConvertorCache)) {
-                $valueConvertor = $this->valueConvertorCache[$constructorParamTypeName];
-
-                $subscribedAttributeFqn = $valueConvertor->getSubscribedAttributeFqn();
-
-                $subscribedPropAttributes = $subscribedAttributeFqn === null
-                    ? []
-                    : array_map(
-                        fn (ReflectionAttribute $attribute) => $attribute->newInstance(),
-                        $constructorParam->getAttributes($subscribedAttributeFqn),
-                    );
-
-                try {
-                    $args[$constructorParamName] = $valueConvertor->fromDb(
-                        $constructorParamTypeName,
-                        $rawValue,
-                        $subscribedPropAttributes,
-                    );
-                } catch (Throwable $e) {
-                    throw $this->generateEntityAdapterException($entityFqn, $e->getMessage(), $e);
-                }
-
-                continue;
-            } else {
-                foreach ($this->valueConvertors as $valueConvertor) {
-                    $shouldApply = $valueConvertor->shouldApply($constructorParamTypeName, $entityFqn);
-
-                    if ($shouldApply) {
-                        $this->valueConvertorCache[$constructorParamTypeName] = $valueConvertor;
-
-                        $subscribedAttributeFqn = $valueConvertor->getSubscribedAttributeFqn();
-
-                        $subscribedPropAttributes = $subscribedAttributeFqn === null
-                            ? []
-                            : array_map(
-                                fn (ReflectionAttribute $attribute) => $attribute->newInstance(),
-                                $constructorParam->getAttributes($subscribedAttributeFqn),
-                            );
-
-                        try {
-                            $args[$constructorParamName] = $valueConvertor->fromDb(
-                                $constructorParamTypeName,
-                                $rawValue,
-                                $subscribedPropAttributes,
-                            );
-                        } catch (Throwable $e) {
-                            throw $this->generateEntityAdapterException($entityFqn, $e->getMessage(), $e);
-                        }
-
-                        continue 2;
-                    }
-                }
+            try {
+                $args[$param->getName()] = $param->getValueConvertor()->fromDb(
+                    $param->getTypeName(),
+                    $rawValue,
+                    $param->getSubscribedPropAttributes(),
+                );
+            } catch (Throwable $e) {
+                throw $this->generateEntityAdapterException($entityFqn, $e->getMessage(), $e);
             }
-
-            throw $this->generateEntityAdapterException(
-                $entityFqn,
-                "Type {$constructorParamTypeName} is not supported",
-            );
         }
 
         return $entityReflection->newInstanceArgs($args);
@@ -275,5 +221,55 @@ class EntityAdapter
             ),
             $previous,
         );
+    }
+
+    /** @return array<EntityParam> */
+    private function prepareParams(string $entityFqn, ReflectionClass $entityReflection): array
+    {
+        $reflectionParams = $entityReflection->getConstructor()->getParameters();
+
+        $entityParams = [];
+
+        foreach ($reflectionParams as $reflectionParam) {
+            $paramName = $reflectionParam->getName();
+            $paramType = $reflectionParam->getType();
+
+            if ($paramType === null) {
+                throw $this->generateEntityAdapterException($entityFqn, "Property {$paramName} is missing type hint");
+            }
+
+            $valueConvertor = $this->chooseConvertor($paramType->getName(), $entityFqn);
+
+            $subscribedAttributeFqn = $valueConvertor->getSubscribedAttributeFqn();
+            $subscribedPropAttributes = $subscribedAttributeFqn === null
+                ? []
+                : array_map(
+                    fn (ReflectionAttribute $attribute) => $attribute->newInstance(),
+                    $reflectionParam->getAttributes($subscribedAttributeFqn),
+                );
+
+            $entityParams[] = new EntityParam(
+                $paramName,
+                $paramType->getName(),
+                $paramType->allowsNull(),
+                StringUtils::camelToSnakeCase($paramName),
+                $valueConvertor,
+                count($reflectionParam->getAttributes(Contingent::class)) !== 0,
+                $subscribedPropAttributes,
+            );
+        }
+
+        return $entityParams;
+    }
+
+    private function chooseConvertor(string $paramTypeName, string $entityFqn): ValueConvertorInterface
+    {
+        foreach ($this->valueConvertors as $valueConvertor) {
+            if ($valueConvertor->shouldApply($paramTypeName, $entityFqn)) {
+                return $valueConvertor;
+            }
+        }
+
+        throw $this->generateEntityAdapterException($entityFqn, "Type {$paramTypeName} is not supported");
     }
 }
