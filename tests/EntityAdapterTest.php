@@ -547,8 +547,8 @@ class EntityAdapterTest extends TestCase
             'rowCount' => 9999,
             'willUseGenerator' => false,
             'expectedConvertorsToRunTimes' => [
-                IntegerValueConvertor::class => ['shouldApply' => 8, 'fromDb' => 1],
-                StringValueConvertor::class => ['shouldApply' => 7, 'fromDb' => 2],
+                IntegerValueConvertor::class => ['shouldApply' => 6, 'fromDb' => 1],
+                StringValueConvertor::class => ['shouldApply' => 5, 'fromDb' => 2],
                 BooleanValueConvertor::class => ['shouldApply' => 4, 'fromDb' => 1],
                 FloatValueConvertor::class => ['shouldApply' => 3, 'fromDb' => 1],
                 DateTimeImmutableValueConvertor::class => ['shouldApply' => 2, 'fromDb' => 1],

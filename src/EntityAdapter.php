@@ -19,6 +19,9 @@ class EntityAdapter
     /** @var array<ValueConvertorInterface> $valueConvertors */
     private array $valueConvertors;
 
+    /** @var array<string, ValueConvertorInterface> $valueConvertorCache */
+    private array $valueConvertorCache = [];
+
     /** @param int|null $useGeneratorRowCountThreshold null - never use generator */
     public function __construct(
         private readonly ValueConvertorFactoryInterface $valueConvertorFactory,
@@ -238,7 +241,7 @@ class EntityAdapter
                 throw $this->generateEntityAdapterException($entityFqn, "Property {$paramName} is missing type hint");
             }
 
-            $valueConvertor = $this->chooseConvertor($paramType->getName(), $entityFqn);
+            $valueConvertor = $this->selectConvertor($paramType->getName(), $entityFqn);
 
             $subscribedAttributeFqn = $valueConvertor->getSubscribedAttributeFqn();
             $subscribedPropAttributes = $subscribedAttributeFqn === null
@@ -262,10 +265,16 @@ class EntityAdapter
         return $entityParams;
     }
 
-    private function chooseConvertor(string $paramTypeName, string $entityFqn): ValueConvertorInterface
+    private function selectConvertor(string $paramTypeName, string $entityFqn): ValueConvertorInterface
     {
+        if (array_key_exists($paramTypeName, $this->valueConvertorCache)) {
+            return $this->valueConvertorCache[$paramTypeName];
+        }
+
         foreach ($this->valueConvertors as $valueConvertor) {
             if ($valueConvertor->shouldApply($paramTypeName, $entityFqn)) {
+                $this->valueConvertorCache[$paramTypeName] = $valueConvertor;
+
                 return $valueConvertor;
             }
         }
