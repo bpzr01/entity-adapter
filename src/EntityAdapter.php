@@ -6,6 +6,7 @@ namespace Bpzr\EntityAdapter;
 
 use Bpzr\EntityAdapter\Attribute\Contingent;
 use Bpzr\EntityAdapter\Exception\EntityAdapterException;
+use Bpzr\EntityAdapter\Parameter\EntityParam;
 use Bpzr\EntityAdapter\Utils\StringUtils;
 use Bpzr\EntityAdapter\ValueConvertor\Abstract\ValueConvertorFactoryInterface;
 use Bpzr\EntityAdapter\ValueConvertor\Abstract\ValueConvertorInterface;

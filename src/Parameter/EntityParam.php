@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Bpzr\EntityAdapter;
+namespace Bpzr\EntityAdapter\Parameter;
 
 use Bpzr\EntityAdapter\ValueConvertor\Abstract\ValueConvertorInterface;
 
