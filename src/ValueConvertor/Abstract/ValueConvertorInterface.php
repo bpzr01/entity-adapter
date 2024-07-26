@@ -14,13 +14,13 @@ interface ValueConvertorInterface
 
     /**
      * @param string|class-string $typeName
-     * @param array<object> $subscribedAttributes object of {@see self::getSubscribedAttributeFqn()}
+     * @param array<object> $subscribedAttributes object of {@see self::getSubscribedParamAttributeFqn()}
      */
     public function fromDb(string $typeName, mixed $value, array $subscribedAttributes): mixed;
 
-    /** @param array<object> $subscribedAttributes object of {@see self::getSubscribedAttributeFqn()} */
+    /** @param array<object> $subscribedAttributes object of {@see self::getSubscribedParamAttributeFqn()} */
     public function toDb(mixed $value, array $subscribedAttributes): int|string|float;
 
     /** @return class-string|null */
-    public function getSubscribedAttributeFqn(): ?string;
+    public function getSubscribedParamAttributeFqn(): ?string;
 }

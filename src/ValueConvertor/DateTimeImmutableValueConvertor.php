@@ -43,7 +43,7 @@ class DateTimeImmutableValueConvertor implements ValueConvertorInterface
     }
 
     /** @return class-string */
-    public function getSubscribedAttributeFqn(): string
+    public function getSubscribedParamAttributeFqn(): string
     {
         return DateTimeFormat::class;
     }

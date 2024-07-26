@@ -6,9 +6,9 @@ namespace Bpzr\EntityAdapter\Parameter;
 
 use Bpzr\EntityAdapter\ValueConvertor\Abstract\ValueConvertorInterface;
 
-readonly class EntityParam
+readonly class EntityParamSchema
 {
-    /** @param array<object> $subscribedPropAttributes */
+    /** @param array<object> $subscribedParamAttributes */
     public function __construct(
         private string $name,
         private string $typeName,
@@ -16,7 +16,7 @@ readonly class EntityParam
         private string $columnName,
         private ValueConvertorInterface $valueConvertor,
         private bool $isContingent,
-        private array $subscribedPropAttributes,
+        private array $subscribedParamAttributes,
     ) {
     }
 
@@ -51,8 +51,8 @@ readonly class EntityParam
     }
 
     /** @return array<object> */
-    public function getSubscribedPropAttributes(): array
+    public function getSubscribedParamAttributes(): array
     {
-        return $this->subscribedPropAttributes;
+        return $this->subscribedParamAttributes;
     }
 }

@@ -6,7 +6,7 @@ namespace Bpzr\EntityAdapter;
 
 use Bpzr\EntityAdapter\Attribute\Contingent;
 use Bpzr\EntityAdapter\Exception\EntityAdapterException;
-use Bpzr\EntityAdapter\Parameter\EntityParam;
+use Bpzr\EntityAdapter\Parameter\EntityParamSchema;
 use Bpzr\EntityAdapter\Utils\StringUtils;
 use Bpzr\EntityAdapter\ValueConvertor\Abstract\ValueConvertorFactoryInterface;
 use Bpzr\EntityAdapter\ValueConvertor\Abstract\ValueConvertorInterface;
@@ -20,7 +20,7 @@ class EntityAdapter
     /** @var array<ValueConvertorInterface> $valueConvertors */
     private array $valueConvertors;
 
-    /** @var array<string, ValueConvertorInterface> $valueConvertorCache */
+    /** @var array<string, ValueConvertorInterface> $valueConvertorCache type name => convertor */
     private array $valueConvertorCache = [];
 
     /** @param int|null $useGeneratorRowCountThreshold null - never use generator */
@@ -51,12 +51,10 @@ class EntityAdapter
 
         $entityReflection = $this->prepareEntityReflection($entityFqn);
 
-        // TODO: This is not optimal - consider using different strategy for this method
-
         return $this->createEntity(
             $entityFqn,
             $entityReflection,
-            $this->prepareParams($entityFqn, $entityReflection),
+            $this->prepareParamsSchema($entityFqn, $entityReflection),
             $rows[0],
         );
     }
@@ -85,7 +83,7 @@ class EntityAdapter
             ? $query->fetchAllAssociative()
             : $query->iterateAssociative();
 
-        $entityParams = $this->prepareParams($entityFqn, $entityReflection);
+        $entityParams = $this->prepareParamsSchema($entityFqn, $entityReflection);
 
         $entities = [];
 
@@ -126,19 +124,19 @@ class EntityAdapter
     /**
      * @template T
      * @param class-string<T> $entityFqn
-     * @param array<EntityParam> $entityParams
+     * @param array<EntityParamSchema> $paramsSchema
      * @param array<string, mixed> $rowAssoc
      * @return T
      */
     private function createEntity(
         string $entityFqn,
         ReflectionClass $entityReflection,
-        array $entityParams,
+        array $paramsSchema,
         array $rowAssoc,
     ): object {
         $args = [];
 
-        foreach ($entityParams as $param) {
+        foreach ($paramsSchema as $param) {
             if (! array_key_exists($param->getColumnName(), $rowAssoc)) {
                 throw $this->generateEntityAdapterException(
                     $entityFqn,
@@ -172,7 +170,7 @@ class EntityAdapter
                 $args[$param->getName()] = $param->getValueConvertor()->fromDb(
                     $param->getTypeName(),
                     $rawValue,
-                    $param->getSubscribedPropAttributes(),
+                    $param->getSubscribedParamAttributes(),
                 );
             } catch (Throwable $e) {
                 throw $this->generateEntityAdapterException($entityFqn, $e->getMessage(), $e);
@@ -228,8 +226,8 @@ class EntityAdapter
         );
     }
 
-    /** @return array<EntityParam> */
-    private function prepareParams(string $entityFqn, ReflectionClass $entityReflection): array
+    /** @return array<EntityParamSchema> */
+    private function prepareParamsSchema(string $entityFqn, ReflectionClass $entityReflection): array
     {
         $reflectionParams = $entityReflection->getConstructor()->getParameters();
 
@@ -245,22 +243,22 @@ class EntityAdapter
 
             $valueConvertor = $this->selectConvertor($paramType->getName(), $entityFqn);
 
-            $subscribedAttributeFqn = $valueConvertor->getSubscribedAttributeFqn();
-            $subscribedPropAttributes = $subscribedAttributeFqn === null
+            $subscribedAttributeFqn = $valueConvertor->getSubscribedParamAttributeFqn();
+            $subscribedParamAttributes = $subscribedAttributeFqn === null
                 ? []
                 : array_map(
                     fn (ReflectionAttribute $attribute): object => $attribute->newInstance(),
                     $reflectionParam->getAttributes($subscribedAttributeFqn),
                 );
 
-            $entityParams[] = new EntityParam(
+            $entityParams[] = new EntityParamSchema(
                 $paramName,
                 $paramType->getName(),
                 $paramType->allowsNull(),
                 StringUtils::camelToSnakeCase($paramName),
                 $valueConvertor,
                 count($reflectionParam->getAttributes(Contingent::class)) !== 0,
-                $subscribedPropAttributes,
+                $subscribedParamAttributes,
             );
         }
 

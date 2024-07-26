@@ -34,7 +34,7 @@ class BackedEnumValueConvertor implements ValueConvertorInterface
     }
 
     /** @inheritDoc */
-    public function getSubscribedAttributeFqn(): null
+    public function getSubscribedParamAttributeFqn(): null
     {
         return null;
     }
