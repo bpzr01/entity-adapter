@@ -18,7 +18,6 @@ use Bpzr\EntityAdapter\ValueConvertor\StringValueConvertor;
 use Bpzr\Tests\Fixture\Entity\DateEntityFixture;
 use Bpzr\Tests\Fixture\Entity\InvalidDateFormatEntityFixture;
 use Bpzr\Tests\Fixture\Entity\MissingDateTimeFormatAttributeEntityFixture;
-use Bpzr\Tests\Fixture\Entity\MissingTypeHintEntityFixture;
 use Bpzr\Tests\Fixture\Entity\NonConstructibleEntityFixture;
 use Bpzr\Tests\Fixture\Entity\NonInstantiableEntityFixture;
 use Bpzr\Tests\Fixture\Entity\NumericPropertyNameEntityFixture;
@@ -77,21 +76,6 @@ class EntityAdapterTest extends TestCase
             'expectCouldNotGetValueByColumnException' => true,
         ];
         yield [
-            'queryResult' => [0 => ['id' => 9091]],
-            'entityFqn' => MissingTypeHintEntityFixture::class,
-            'expectMissingTypeHintException' => true,
-        ];
-        yield [
-            'queryResult' => [0 => ['id' => 1, 'username' => null, 'password' => null]],
-            'entityFqn' => UserEntityFixture::class,
-            'expectPropertyIsNotNullableException' => true,
-        ];
-        yield [
-            'queryResult' => [0 => ['id' => null]],
-            'entityFqn' => UserEntityFixture::class,
-            'expectContingentPropertyIsNotNullableException' => true,
-        ];
-        yield [
             'queryResult' => [0 => ['enum' => 'testCase']],
             'entityFqn' => UnsupportedDataTypeEntityFixture::class,
             'expectUnsupportedDataTypeException' => true,
@@ -127,10 +111,7 @@ class EntityAdapterTest extends TestCase
         bool $expectEntityIsNotInstantiableException = false,
         bool $expectEntityIsNotConstructibleException = false,
         bool $expectCouldNotGetValueByColumnException = false,
-        bool $expectMissingTypeHintException = false,
-        bool $expectPropertyIsNotNullableException = false,
         bool $expectUnsupportedDataTypeException = false,
-        bool $expectContingentPropertyIsNotNullableException = false,
         bool $expectMissingDateTimeFormatAttributeException = false,
         bool $expectInvalidDateTimeFormatAttributeException = false,
     ): void {
@@ -156,23 +137,8 @@ class EntityAdapterTest extends TestCase
 
         if ($expectCouldNotGetValueByColumnException) {
             $this->expectExceptionMessageMatches(
-                '/Could not get value of property .* by database column .*/'
+                '/Could not get value of parameter .* by database column .*/'
             );
-            $this->expectException(EntityAdapterException::class);
-        }
-
-        if ($expectMissingTypeHintException) {
-            $this->expectExceptionMessageMatches('/Property .* is missing type hint/');
-            $this->expectException(EntityAdapterException::class);
-        }
-
-        if ($expectPropertyIsNotNullableException) {
-            $this->expectExceptionMessageMatches('/Value of property .* must not be null in the database/');
-            $this->expectException(EntityAdapterException::class);
-        }
-
-        if ($expectContingentPropertyIsNotNullableException) {
-            $this->expectExceptionMessageMatches('/Value of contingent property .* must not be null in the database/');
             $this->expectException(EntityAdapterException::class);
         }
 
