@@ -30,7 +30,7 @@ class StringValueConvertor implements ValueConvertorInterface
     }
 
     /** @inheritDoc */
-    public function getSubscribedParamAttributeFqn(): null
+    public function getSubscribedPropertyAttributeFqn(): null
     {
         return null;
     }

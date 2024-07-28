@@ -20,7 +20,7 @@ class DateTimeImmutableValueConvertor implements ValueConvertorInterface
     /** @inheritDoc */
     public function fromDb(string $typeName, mixed $value, array $subscribedAttributes): DateTimeImmutable
     {
-        $formatAttribute = $this->getFormatAttribute($subscribedAttributes);
+        $formatAttribute = $this->getDateTimeFormatAttribute($subscribedAttributes);
 
         $dti = DateTimeImmutable::createFromFormat($formatAttribute->getFormat(), $value);
 
@@ -37,19 +37,19 @@ class DateTimeImmutableValueConvertor implements ValueConvertorInterface
      */
     public function toDb(mixed $value, array $subscribedAttributes): string
     {
-        $formatAttribute = $this->getFormatAttribute($subscribedAttributes);
+        $dateTimeFormatAttribute = $this->getDateTimeFormatAttribute($subscribedAttributes);
 
-        return $value->format($formatAttribute->getFormat());
+        return $value->format($dateTimeFormatAttribute->getFormat());
     }
 
     /** @return class-string */
-    public function getSubscribedParamAttributeFqn(): string
+    public function getSubscribedPropertyAttributeFqn(): string
     {
         return DateTimeFormat::class;
     }
 
     /** @param array<object> $subscribedAttributes */
-    private function getFormatAttribute(array $subscribedAttributes): DateTimeFormat
+    private function getDateTimeFormatAttribute(array $subscribedAttributes): DateTimeFormat
     {
         /** @var DateTimeFormat|null $dateTimeFormatAttribute */
         $dateTimeFormatAttribute = $subscribedAttributes[0] ?? null;

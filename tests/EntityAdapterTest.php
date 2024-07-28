@@ -18,8 +18,6 @@ use Bpzr\EntityAdapter\ValueConvertor\StringValueConvertor;
 use Bpzr\Tests\Fixture\Entity\DateEntityFixture;
 use Bpzr\Tests\Fixture\Entity\InvalidDateFormatEntityFixture;
 use Bpzr\Tests\Fixture\Entity\MissingDateTimeFormatAttributeEntityFixture;
-use Bpzr\Tests\Fixture\Entity\NonConstructibleEntityFixture;
-use Bpzr\Tests\Fixture\Entity\NonInstantiableEntityFixture;
 use Bpzr\Tests\Fixture\Entity\NumericPropertyNameEntityFixture;
 use Bpzr\Tests\Fixture\Entity\ProductEntityFixture;
 use Bpzr\Tests\Fixture\Entity\UnsupportedDataTypeEntityFixture;
@@ -54,16 +52,6 @@ class EntityAdapterTest extends TestCase
             ],
             'entityFqn' => UserEntityFixture::class,
             'expectTooManyRowsException' => true,
-        ];
-        yield [
-            'queryResult' => [0 => ['test' => 1234]],
-            'entityFqn' => NonInstantiableEntityFixture::class,
-            'expectEntityIsNotInstantiableException' => true,
-        ];
-        yield [
-            'queryResult' => [0 => []],
-            'entityFqn' => NonConstructibleEntityFixture::class,
-            'expectEntityIsNotConstructibleException' => true,
         ];
         yield [
             'queryResult' => [0 => []],
@@ -108,8 +96,6 @@ class EntityAdapterTest extends TestCase
         array $queryResult,
         string $entityFqn,
         bool $expectTooManyRowsException = false,
-        bool $expectEntityIsNotInstantiableException = false,
-        bool $expectEntityIsNotConstructibleException = false,
         bool $expectCouldNotGetValueByColumnException = false,
         bool $expectUnsupportedDataTypeException = false,
         bool $expectMissingDateTimeFormatAttributeException = false,
@@ -125,19 +111,9 @@ class EntityAdapterTest extends TestCase
             $this->expectException(EntityAdapterException::class);
         }
 
-        if ($expectEntityIsNotInstantiableException) {
-            $this->expectExceptionMessageMatches('/Given class is not instantiable/');
-            $this->expectException(EntityAdapterException::class);
-        }
-
-        if ($expectEntityIsNotConstructibleException) {
-            $this->expectExceptionMessageMatches('/Given class must have a constructor/');
-            $this->expectException(EntityAdapterException::class);
-        }
-
         if ($expectCouldNotGetValueByColumnException) {
             $this->expectExceptionMessageMatches(
-                '/Could not get value of parameter .* by database column .*/'
+                '/Could not get value of property .* by database column .*/'
             );
             $this->expectException(EntityAdapterException::class);
         }
