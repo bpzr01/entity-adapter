@@ -42,8 +42,8 @@ class DateTimeImmutableValueConvertor implements ValueConvertorInterface
         return $value->format($dateTimeFormatAttribute->getFormat());
     }
 
-    /** @return class-string */
-    public function getSubscribedPropertyAttributeFqn(): string
+    /** @inheritDoc */
+    public function getSubscribedPropertyAttributeFqn(): ?string
     {
         return DateTimeFormat::class;
     }

@@ -65,6 +65,7 @@ class EntityAdapter
                 continue;
             }
 
+            // TODO: Include this rule in validation script
             $propTypeName = $reflectionProperty->getType()->getName();
             $valueConvertor = $valueConvertorCache[$propTypeName] ??= $this->selectValueConvertor(
                 $propTypeName,

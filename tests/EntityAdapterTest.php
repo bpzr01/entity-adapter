@@ -15,54 +15,249 @@ use Bpzr\EntityAdapter\ValueConvertor\Factory\ValueConvertorFactory;
 use Bpzr\EntityAdapter\ValueConvertor\FloatValueConvertor;
 use Bpzr\EntityAdapter\ValueConvertor\IntegerValueConvertor;
 use Bpzr\EntityAdapter\ValueConvertor\StringValueConvertor;
+use Bpzr\Tests\Fixture\Attribute\TestAttributeFixture;
 use Bpzr\Tests\Fixture\Entity\DateEntityFixture;
 use Bpzr\Tests\Fixture\Entity\InvalidDateFormatEntityFixture;
 use Bpzr\Tests\Fixture\Entity\MissingDateTimeFormatAttributeEntityFixture;
+use Bpzr\Tests\Fixture\Entity\MultipleAttributesEntityFixture;
+use Bpzr\Tests\Fixture\Entity\NullablePropertiesEntityFixture;
 use Bpzr\Tests\Fixture\Entity\NumericPropertyNameEntityFixture;
 use Bpzr\Tests\Fixture\Entity\ProductEntityFixture;
+use Bpzr\Tests\Fixture\Entity\SingleAttributeEntityFixture;
 use Bpzr\Tests\Fixture\Entity\UnsupportedDataTypeEntityFixture;
 use Bpzr\Tests\Fixture\Entity\UserEntityFixture;
 use Bpzr\Tests\Fixture\Enum\UserTypeEnum;
+use Bpzr\Tests\Fixture\ValueConvertor\TestValueConvertor;
+use Couchbase\QueryResult;
 use DateTimeImmutable;
 use Doctrine\DBAL\Result;
 use Generator;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
+use function PHPUnit\Framework\assertEquals;
 
 class EntityAdapterTest extends TestCase
 {
-    public static function createOneThrowsDataProvider(): Generator
+    public static function createOneWillThrowTooManyRowsDataProvider(): Generator
     {
-        yield [
-            'queryResult' => [
-                0 => ['id' => 123],
-                1 => ['id' => 789],
-            ],
-            'entityFqn' => UserEntityFixture::class,
-            'expectTooManyRowsException' => true,
-        ];
-        yield [
+        yield '2 rows' => [
             'queryResult' => [
                 ['id' => 123],
-                ['id' => 1296],
-                ['id' => 31235],
-                ['id' => 123163],
-                ['id' => 7897869],
-                ['id' => 99679017],
+                ['id' => 789],
             ],
             'entityFqn' => UserEntityFixture::class,
-            'expectTooManyRowsException' => true,
         ];
-        yield [
-            'queryResult' => [0 => []],
+        yield 'many rows' => [
+            'queryResult' => [
+                ['id' => 5645],
+                ['id' => 5476],
+                ['id' => 45645],
+                ['id' => 4564],
+                ['id' => 546],
+                ['id' => 645654],
+                ['id' => 644],
+                ['id' => 1263],
+                ['id' => 534],
+                ['id' => 312],
+                ['id' => 45645],
+            ],
             'entityFqn' => UserEntityFixture::class,
-            'expectCouldNotGetValueByColumnException' => true,
         ];
-        yield [
-            'queryResult' => [0 => ['invalid_column_name' => 'column value']],
+        yield 'different column names' => [
+            'queryResult' => [
+                ['some_column_name143' => 123],
+                ['some_column_name345' => 1296],
+                ['some_column_name525' => 31235],
+                ['some_column_name236' => 123163],
+                ['some_column_name86' => 7897869],
+            ],
+            'entityFqn' => ProductEntityFixture::class,
+        ];
+    }
+
+    #[DataProvider('createOneWillThrowTooManyRowsDataProvider')]
+    public function testCreateOneWillThrowTooManyRows(array $queryResult, string $entityFqn): void
+    {
+        $this->expectExceptionMessageMatches('/Query must not return more than one row/');
+        $this->expectException(EntityAdapterException::class);
+
+        (new EntityAdapter(new ValueConvertorFactory()))->createOne($entityFqn, $this->createQueryResultMock($queryResult));
+    }
+
+    public static function createOneWillThrowFailedToGetValueByColumnNameDataProvider(): Generator
+    {
+        yield 'empty array' => [
+            'queryResult' => [[]],
             'entityFqn' => UserEntityFixture::class,
-            'expectCouldNotGetValueByColumnException' => true,
         ];
+        yield 'invalid column name' => [
+            'queryResult' => [
+                [
+                    'id' => 123,
+                    'invalid_column_name' => 'column value'
+                ]
+            ],
+            'entityFqn' => ProductEntityFixture::class,
+        ];
+
+        yield 'invalid column name cc' => [
+            'queryResult' => [
+                [
+                    'id' => 123,
+                    'isPurchasable' => false,
+                    'config' => '{test: true}',
+                ]
+            ],
+            'entityFqn' => ProductEntityFixture::class,
+        ];
+    }
+
+    #[DataProvider('createOneWillThrowFailedToGetValueByColumnNameDataProvider')]
+    public function testCreateOneWillThrowFailedToGetValueByColumnName(array $queryResult, string $entityFqn): void
+    {
+        $this->expectExceptionMessageMatches(
+            '/Could not get value of property .* by database column .*/'
+        );
+        $this->expectException(EntityAdapterException::class);
+
+        (new EntityAdapter(new ValueConvertorFactory()))->createOne($entityFqn, $this->createQueryResultMock($queryResult));
+    }
+
+    public static function createOneWillNotUseValueConvertorsDataProvider(): Generator
+    {
+        yield 'all DB columns are null' => [
+            'queryResult' => [
+                [
+                    'age' => null,
+                    'name' => null,
+                    'next_birthday' => null,
+                ],
+            ],
+            'entityFqn' => NullablePropertiesEntityFixture::class,
+            'expected' => new NullablePropertiesEntityFixture(null, null, null),
+        ];
+        yield 'does not return any rows' => [
+            'queryResult' => [],
+            'entityFqn' => NullablePropertiesEntityFixture::class,
+            'expected' => null,
+        ];
+    }
+
+    #[DataProvider('createOneWillNotUseValueConvertorsDataProvider')]
+    public function testCreateOneWillNotUseValueConvertors(
+        array $queryResult,
+        string $entityFqn,
+        ?object $expected,
+    ): void {
+        $valueConvertorFactoryMock = $this->createMock(ValueConvertorFactory::class);
+        $valueConvertorFactoryMock->method('createAll')->willReturn([]);
+
+        $entity = (new EntityAdapter($valueConvertorFactoryMock))
+            ->createOne($entityFqn, $this->createQueryResultMock($queryResult));
+
+        $this->assertEquals($entity, $expected);
+    }
+
+    public static function createsSubscribedAttributesDataProvider(): Generator
+    {
+        yield 'creates empty array' => [
+            'entityFqn' => ProductEntityFixture::class,
+            'queryResult' => [
+                [
+                    'id' => 123,
+                    'is_purchasable' => false,
+                    'config' => '{config}',
+                ],
+            ],
+            'expectedAttributes' => [],
+            'subscribedAttributeFqn' => null,
+            'expectedEntity' => new ProductEntityFixture(123, false, '{config}'),
+        ];
+        yield 'creates single attribute' => [
+            'entityFqn' => SingleAttributeEntityFixture::class,
+            'queryResult' => [
+                [
+                    'first_name' => 'John',
+                    'order_count' => 30,
+                ],
+            ],
+            'expectedAttributes' => [new TestAttributeFixture(123)],
+            'subscribedAttributeFqn' => TestAttributeFixture::class,
+            'expectedEntity' => new SingleAttributeEntityFixture('John', 153),
+        ];
+        yield 'creates multiple attributes' => [
+            'entityFqn' => MultipleAttributesEntityFixture::class,
+            'queryResult' => [
+                [
+                    'last_name' => 'Doe',
+                    'product_count' => 900,
+                ],
+            ],
+            'expectedAttributes' => [
+                new TestAttributeFixture(1),
+                new TestAttributeFixture(2),
+                new TestAttributeFixture(3),
+                new TestAttributeFixture(4),
+            ],
+            'subscribedAttributeFqn' => TestAttributeFixture::class,
+            'expectedEntity' => new MultipleAttributesEntityFixture('Doe', 910),
+        ];
+    }
+
+    #[DataProvider('createsSubscribedAttributesDataProvider')]
+    public function testCreatesSubscribedAttributes(
+        string $entityFqn,
+        array $queryResult,
+        array $expectedAttributes,
+        ?string $subscribedAttributeFqn,
+        ?object $expectedEntity,
+    ): void {
+        $testIntValueConvertorMock = $this->createMock(IntegerValueConvertor::class);
+
+        $testIntValueConvertorMock->method('getSubscribedPropertyAttributeFqn')
+            ->willReturn($subscribedAttributeFqn);
+
+        $testIntValueConvertorMock->method('shouldApply')
+            ->willReturnCallback(fn (string $propertyTypeName, string $entityFqn) => $propertyTypeName === 'int');
+
+        $testIntValueConvertorMock->method('fromDb')->willReturnCallback(
+            function (string $typeName, mixed $value, array $subscribedAttributes) use ($expectedAttributes) {
+                $this->assertEquals($expectedAttributes, $subscribedAttributes);
+
+                return $value + array_sum(array_map(
+                    fn (TestAttributeFixture $ta) => $ta->getTestValue(),
+                    $subscribedAttributes,
+                ));
+            },
+        );
+
+        $valueConvertorFactoryMock = $this->createMock(ValueConvertorFactory::class);
+        $valueConvertorFactoryMock->method('createAll')->willReturn([
+            $testIntValueConvertorMock,
+            new BooleanValueConvertor(),
+            new StringValueConvertor(),
+        ]);
+
+        $actualEntity = (new EntityAdapter($valueConvertorFactoryMock))->createOne(
+            $entityFqn,
+            $this->createQueryResultMock($queryResult),
+        );
+
+        $this->assertEquals($expectedEntity, $actualEntity);
+    }
+
+    private function createQueryResultMock(array $queryResult): Result
+    {
+        $resultMock = $this->createMock(Result::class);
+        $resultMock->expects($this->once())
+            ->method('fetchAllAssociative')
+            ->willReturn($queryResult);
+
+        return $resultMock;
+    }
+
+    public static function createOneThrowsDataProvider(): Generator
+    {
         yield [
             'queryResult' => [0 => ['enum' => 'testCase']],
             'entityFqn' => UnsupportedDataTypeEntityFixture::class,
@@ -95,8 +290,6 @@ class EntityAdapterTest extends TestCase
     public function testCreateOneThrows(
         array $queryResult,
         string $entityFqn,
-        bool $expectTooManyRowsException = false,
-        bool $expectCouldNotGetValueByColumnException = false,
         bool $expectUnsupportedDataTypeException = false,
         bool $expectMissingDateTimeFormatAttributeException = false,
         bool $expectInvalidDateTimeFormatAttributeException = false,
@@ -105,18 +298,6 @@ class EntityAdapterTest extends TestCase
         $resultMock->expects($this->once())
             ->method('fetchAllAssociative')
             ->willReturn($queryResult);
-
-        if ($expectTooManyRowsException) {
-            $this->expectExceptionMessageMatches('/Query must not return more than one row/');
-            $this->expectException(EntityAdapterException::class);
-        }
-
-        if ($expectCouldNotGetValueByColumnException) {
-            $this->expectExceptionMessageMatches(
-                '/Could not get value of property .* by database column .*/'
-            );
-            $this->expectException(EntityAdapterException::class);
-        }
 
         if ($expectUnsupportedDataTypeException) {
             $this->expectExceptionMessageMatches('/Type .* is not supported/');
