@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace Bpzr\EntityAdapter;
 
+use Bpzr\EntityAdapter\Attribute\Table;
 use Bpzr\EntityAdapter\Exception\EntityAdapterException;
 use Bpzr\EntityAdapter\Utils\StringUtils;
 use Bpzr\EntityAdapter\ValueConvertor\Abstract\ValueConvertorFactoryInterface;
 use Bpzr\EntityAdapter\ValueConvertor\Abstract\ValueConvertorInterface;
+use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\Result;
 use ReflectionAttribute;
 use ReflectionClass;
@@ -159,6 +161,45 @@ class EntityAdapter
         return $entities;
     }
 
+    public function insertOne(object $entity, Connection $connection): void
+    {
+        $entityFqn = $entity::class;
+        $entityReflection = new ReflectionClass($entityFqn);
+        $reflectionProperties = $entityReflection->getProperties();
+
+        $tableAttribute = $this->createTableAttribute($entityReflection, $entityFqn);
+
+        $insertData = $valueConvertorCache = [];
+
+        foreach ($reflectionProperties as $reflectionProperty) {
+            $propName = $reflectionProperty->getName();
+            $columnName = StringUtils::camelToSnakeCase($propName);
+            $propValue = $reflectionProperty->getValue($entity);
+
+            if ($propValue === null) {
+                $insertData[$columnName] = null;
+
+                continue;
+            }
+
+            $propTypeName = $reflectionProperty->getType()->getName();
+            $valueConvertor = $valueConvertorCache[$propTypeName] ??= $this->selectValueConvertor(
+                $propTypeName,
+                $entityFqn,
+            );
+
+            $subscribedAttributes = $this->createSubscribedAttributes($valueConvertor, $reflectionProperty);
+
+            try {
+                $insertData[$columnName] = $valueConvertor->toDb($propValue, $subscribedAttributes);
+            } catch (Throwable $e) {
+                throw $this->generateEntityAdapterException($entityFqn, $e->getMessage(), $e);
+            }
+        }
+
+        $connection->insert($tableAttribute->getName(), $insertData);
+    }
+
     private function getRawPropValueByColumnName(
         string $columnName,
         array $row,
@@ -190,6 +231,31 @@ class EntityAdapter
             );
     }
 
+    private function createTableAttribute(ReflectionClass $entityReflection, string $entityFqn): Table
+    {
+        $tableAttributes = $entityReflection->getAttributes(Table::class);
+
+        if (count($tableAttributes) === 0) {
+            throw $this->generateEntityAdapterException(
+                $entityFqn,
+                'Entity class must have ' . Table::class . ' attribute',
+            );
+        }
+
+        return $tableAttributes[0]->newInstance();
+    }
+
+    private function selectValueConvertor(string $propTypeName, string $entityFqn): ValueConvertorInterface
+    {
+        foreach ($this->valueConvertors as $convertor) {
+            if ($convertor->shouldApply($propTypeName, $entityFqn)) {
+                return $convertor;
+            }
+        }
+
+        throw $this->generateEntityAdapterException($entityFqn, "Type {$propTypeName} is not supported");
+    }
+
     /**
      * @template T
      * @param ReflectionClass<T> $entityReflection
@@ -219,17 +285,6 @@ class EntityAdapter
         }
 
         return $getterMethodName;
-    }
-
-    private function selectValueConvertor(string $propTypeName, string $entityFqn): ValueConvertorInterface
-    {
-        foreach ($this->valueConvertors as $convertor) {
-            if ($convertor->shouldApply($propTypeName, $entityFqn)) {
-                return $convertor;
-            }
-        }
-
-        throw $this->generateEntityAdapterException($entityFqn, "Type {$propTypeName} is not supported");
     }
 
     private function generateEntityAdapterException(
