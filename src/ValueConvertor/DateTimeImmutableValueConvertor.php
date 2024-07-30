@@ -48,10 +48,9 @@ class DateTimeImmutableValueConvertor implements ValueConvertorInterface
         return DateTimeFormat::class;
     }
 
-    /** @param array<object> $subscribedAttributes */
+    /** @param array<DateTimeFormat> $subscribedAttributes */
     private function getDateTimeFormatAttribute(array $subscribedAttributes): DateTimeFormat
     {
-        /** @var DateTimeFormat|null $dateTimeFormatAttribute */
         $dateTimeFormatAttribute = $subscribedAttributes[0] ?? null;
 
         if ($dateTimeFormatAttribute === null) {

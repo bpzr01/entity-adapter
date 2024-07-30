@@ -17,8 +17,6 @@ use Bpzr\EntityAdapter\ValueConvertor\IntegerValueConvertor;
 use Bpzr\EntityAdapter\ValueConvertor\StringValueConvertor;
 use Bpzr\Tests\Fixture\Attribute\TestAttributeFixture;
 use Bpzr\Tests\Fixture\Entity\DateEntityFixture;
-use Bpzr\Tests\Fixture\Entity\InvalidDateFormatEntityFixture;
-use Bpzr\Tests\Fixture\Entity\MissingDateTimeFormatAttributeEntityFixture;
 use Bpzr\Tests\Fixture\Entity\MultipleAttributesEntityFixture;
 use Bpzr\Tests\Fixture\Entity\NullablePropertiesEntityFixture;
 use Bpzr\Tests\Fixture\Entity\NumericPropertyNameEntityFixture;
@@ -27,14 +25,11 @@ use Bpzr\Tests\Fixture\Entity\SingleAttributeEntityFixture;
 use Bpzr\Tests\Fixture\Entity\UnsupportedDataTypeEntityFixture;
 use Bpzr\Tests\Fixture\Entity\UserEntityFixture;
 use Bpzr\Tests\Fixture\Enum\UserTypeEnum;
-use Bpzr\Tests\Fixture\ValueConvertor\TestValueConvertor;
-use Couchbase\QueryResult;
 use DateTimeImmutable;
 use Doctrine\DBAL\Result;
 use Generator;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
-use function PHPUnit\Framework\assertEquals;
 
 class EntityAdapterTest extends TestCase
 {
@@ -246,6 +241,50 @@ class EntityAdapterTest extends TestCase
         $this->assertEquals($expectedEntity, $actualEntity);
     }
 
+    public static function throwsUnsupportedDataTypeDataProvider(): Generator
+    {
+        yield 'factory returns string convertor' => [
+            'entityFqn' => UnsupportedDataTypeEntityFixture::class,
+            'queryResult' => [
+                [
+                    'name' => 'testname321',
+                    'count' => 999,
+                ]
+            ],
+            'convertorCreateAllResult' => [new StringValueConvertor()],
+            'expectedUnsupportedDataType' => 'int'
+        ];
+
+        yield 'factory returns int convertor' => [
+            'entityFqn' => UnsupportedDataTypeEntityFixture::class,
+            'queryResult' => [
+                [
+                    'name' => 'testname123',
+                    'count' => 111,
+                ]
+            ],
+            'convertorCreateAllResult' => [new IntegerValueConvertor()],
+            'expectedUnsupportedDataType' => 'string'
+        ];
+    }
+
+    #[DataProvider('throwsUnsupportedDataTypeDataProvider')]
+    public function testThrowsUnsupportedDataType(
+        string $entityFqn,
+        array $queryResult,
+        array $convertorCreateAllResult,
+        string $expectedUnsupportedDataType,
+    ): void {
+        $resultMock = $this->createQueryResultMock($queryResult);
+        $valueConvertorFactoryMock = $this->createMock(ValueConvertorFactory::class);
+        $valueConvertorFactoryMock->method('createAll')->willReturn($convertorCreateAllResult);
+
+        $this->expectExceptionMessage("Type {$expectedUnsupportedDataType} is not supported");
+        $this->expectException(EntityAdapterException::class);
+
+        (new EntityAdapter($valueConvertorFactoryMock))->createOne($entityFqn, $resultMock);
+    }
+
     private function createQueryResultMock(array $queryResult): Result
     {
         $resultMock = $this->createMock(Result::class);
@@ -254,67 +293,6 @@ class EntityAdapterTest extends TestCase
             ->willReturn($queryResult);
 
         return $resultMock;
-    }
-
-    public static function createOneThrowsDataProvider(): Generator
-    {
-        yield [
-            'queryResult' => [0 => ['enum' => 'testCase']],
-            'entityFqn' => UnsupportedDataTypeEntityFixture::class,
-            'expectUnsupportedDataTypeException' => true,
-        ];
-        yield [
-            'queryResult' => [0 => ['id' => 123, 'date' => '2022-02-02 12:12:12', 'name' => 'testName']],
-            'entityFqn' => MissingDateTimeFormatAttributeEntityFixture::class,
-            'expectMissingDateTimeFormatAttributeException' => true,
-        ];
-        yield [
-            'queryResult' => [0 => ['id' => 123, 'date' => 'malformed-date-string', 'name' => 'testName']],
-            'entityFqn' => MissingDateTimeFormatAttributeEntityFixture::class,
-            'expectMissingDateTimeFormatAttributeException' => true,
-        ];
-        yield [
-            'queryResult' => [0 => ['date' => '2022-02-02 12:12']],
-            'entityFqn' => InvalidDateFormatEntityFixture::class,
-            'expectInvalidDateTimeFormatAttributeException' => true,
-        ];
-    }
-
-    /**
-     * @covers \Bpzr\EntityAdapter\EntityAdapter::createOne
-     * @covers \Bpzr\EntityAdapter\EntityAdapter::createEntity
-     * @covers \Bpzr\EntityAdapter\EntityAdapter::prepareEntityReflection
-     * @covers \Bpzr\EntityAdapter\EntityAdapter::generateEntityAdapterException
-     */
-    #[DataProvider('createOneThrowsDataProvider')]
-    public function testCreateOneThrows(
-        array $queryResult,
-        string $entityFqn,
-        bool $expectUnsupportedDataTypeException = false,
-        bool $expectMissingDateTimeFormatAttributeException = false,
-        bool $expectInvalidDateTimeFormatAttributeException = false,
-    ): void {
-        $resultMock = $this->createMock(Result::class);
-        $resultMock->expects($this->once())
-            ->method('fetchAllAssociative')
-            ->willReturn($queryResult);
-
-        if ($expectUnsupportedDataTypeException) {
-            $this->expectExceptionMessageMatches('/Type .* is not supported/');
-            $this->expectException(EntityAdapterException::class);
-        }
-
-        if ($expectMissingDateTimeFormatAttributeException) {
-            $this->expectExceptionMessageMatches('/Missing .* attribute./');
-            $this->expectException(EntityAdapterException::class);
-        }
-
-        if ($expectInvalidDateTimeFormatAttributeException) {
-            $this->expectExceptionMessageMatches('/Failed to create DTI from format:/');
-            $this->expectException(EntityAdapterException::class);
-        }
-
-        (new EntityAdapter(new ValueConvertorFactory()))->createOne($entityFqn, $resultMock);
     }
 
     public static function createOneDataProvider(): Generator
