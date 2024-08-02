@@ -67,6 +67,7 @@ class EntityAdapter
 
             // TODO: Include this rule in validation script
             $propTypeName = $reflectionProperty->getType()->getName();
+
             $valueConvertor = $valueConvertorCache[$propTypeName] ??= $this->selectValueConvertor(
                 $propTypeName,
                 $entityFqn,
@@ -127,6 +128,7 @@ class EntityAdapter
                 }
 
                 $propTypeName = $reflectionProperty->getType()->getName();
+
                 $valueConvertor = $valueConvertorCache[$propTypeName] ??= $this->selectValueConvertor(
                     $propTypeName,
                     $entityFqn,
@@ -184,6 +186,7 @@ class EntityAdapter
             }
 
             $propTypeName = $reflectionProperty->getType()->getName();
+
             $valueConvertor = $valueConvertorCache[$propTypeName] ??= $this->selectValueConvertor(
                 $propTypeName,
                 $entityFqn,
