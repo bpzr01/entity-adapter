@@ -297,7 +297,7 @@ class EntityAdapter
         ?Throwable $previous = null,
     ): EntityAdapterException {
         return new EntityAdapterException(
-            "Creating entity from class {$entityFqn} failed." . (
+            "Operation on entity of class {$entityFqn} failed." . (
                 $additionalMessage === null
                     ? ''
                     : " Error: {$additionalMessage}"

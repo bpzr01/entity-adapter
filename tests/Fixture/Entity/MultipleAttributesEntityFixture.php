@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace Bpzr\Tests\Fixture\Entity;
 
+use Bpzr\EntityAdapter\Attribute\Table;
 use Bpzr\Tests\Fixture\Attribute\TestAttributeFixture;
 
+#[Table('multiple_attributes')]
 class MultipleAttributesEntityFixture
 {
     public function __construct(

@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Bpzr\Tests\Fixture\Entity;
 
+use Bpzr\EntityAdapter\Attribute\Table;
+
+#[Table('product')]
 readonly class ProductEntityFixture
 {
     public function __construct(

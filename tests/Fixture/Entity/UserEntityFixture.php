@@ -6,9 +6,11 @@ namespace Bpzr\Tests\Fixture\Entity;
 
 use Bpzr\EntityAdapter\Attribute\Contingent;
 use Bpzr\EntityAdapter\Attribute\DateTimeFormat;
+use Bpzr\EntityAdapter\Attribute\Table;
 use Bpzr\Tests\Fixture\Enum\UserTypeEnum;
 use DateTimeImmutable;
 
+#[Table('user_123')]
 readonly class UserEntityFixture
 {
     public function __construct(

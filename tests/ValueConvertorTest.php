@@ -13,6 +13,7 @@ use Bpzr\EntityAdapter\ValueConvertor\FloatValueConvertor;
 use Bpzr\EntityAdapter\ValueConvertor\IntegerValueConvertor;
 use Bpzr\EntityAdapter\ValueConvertor\StringValueConvertor;
 use Bpzr\Tests\Fixture\Entity\ProductEntityFixture;
+use Bpzr\Tests\Fixture\Entity\UserEntityFixture;
 use Bpzr\Tests\Fixture\Enum\UserTypeEnum;
 use DateTimeImmutable;
 use Generator;
@@ -150,7 +151,7 @@ class ValueConvertorTest extends TestCase
         $this->assertSame($expected, $valueConvertor->getSubscribedPropertyAttributeFqn());
     }
 
-    public static function throwsMissingDateTimeFormatDataProvider(): Generator
+    public static function fromDbThrowsMissingDateTimeFormatDataProvider(): Generator
     {
         yield [
             'typeName' => 'int',
@@ -174,13 +175,90 @@ class ValueConvertorTest extends TestCase
         ];
     }
 
-    #[DataProvider('throwsMissingDateTimeFormatDataProvider')]
-    public function testThrowsMissingDateTimeFormat(string $typeName, string $value): void
+    #[DataProvider('fromDbThrowsMissingDateTimeFormatDataProvider')]
+    public function testFromDbThrowsMissingDateTimeFormat(string $typeName, string $value): void
     {
         $this->expectExceptionMessageMatches('/Missing .* attribute/');
         $this->expectException(RuntimeException::class);
 
         (new DateTimeImmutableValueConvertor())->fromDb($typeName, $value, []);
+    }
+
+    public static function toDbThrowsMissingDateTimeFormatDataProvider(): Generator
+    {
+        yield [
+            'value' => '2022-01-01',
+        ];
+        yield [
+            'value' => 'invalidDateTime',
+        ];
+    }
+
+    #[DataProvider('toDbThrowsMissingDateTimeFormatDataProvider')]
+    public function testToDbThrowsMissingDateTimeFormat(string $value): void
+    {
+        $this->expectExceptionMessageMatches('/Missing .* attribute/');
+        $this->expectException(RuntimeException::class);
+
+        (new DateTimeImmutableValueConvertor())->toDb($value, []);
+    }
+
+    public static function toDbDataProvider(): Generator
+    {
+        yield [
+            'valueConvertor' => new DateTimeImmutableValueConvertor(),
+            'value' => new DateTimeImmutable('2022-01-01 10:12:13'),
+            'subscribedAttributes' => [new DateTimeFormat('Y-m-d')],
+            'expected' => '2022-01-01',
+        ];
+        yield [
+            'valueConvertor' => new StringValueConvertor(),
+            'value' => 'Example string',
+            'subscribedAttributes' => [],
+            'expected' => 'Example string',
+        ];
+        yield [
+            'valueConvertor' => new IntegerValueConvertor(),
+            'value' => 123,
+            'subscribedAttributes' => [],
+            'expected' => 123,
+        ];
+        yield [
+            'valueConvertor' => new BackedEnumValueConvertor(),
+            'value' => UserTypeEnum::PREMIUM,
+            'subscribedAttributes' => [],
+            'expected' => 'PREMIUM',
+        ];
+        yield [
+            'valueConvertor' => new FloatValueConvertor(),
+            'value' => 0.0128,
+            'subscribedAttributes' => [],
+            'expected' => 0.0128,
+        ];
+        yield [
+            'valueConvertor' => new BooleanValueConvertor(),
+            'value' => true,
+            'subscribedAttributes' => [],
+            'expected' => 1,
+        ];
+        yield [
+            'valueConvertor' => new BooleanValueConvertor(),
+            'value' => false,
+            'subscribedAttributes' => [],
+            'expected' => 0,
+        ];
+    }
+
+    #[DataProvider('toDbDataProvider')]
+    public function testToDb(
+        ValueConvertorInterface $valueConvertor,
+        mixed $value,
+        array $subscribedAttributes,
+        mixed $expected,
+    ): void {
+        $actual = $valueConvertor->toDb($value, $subscribedAttributes);
+
+        $this->assertSame($expected, $actual);
     }
 
     public static function throwsInvalidDateTimeFormatDataProvider(): Generator
