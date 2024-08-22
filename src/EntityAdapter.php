@@ -88,7 +88,7 @@ class EntityAdapter
     /**
      * @template T
      * @param class-string<T> $entityFqn
-     * @param array{class-string<T>, string}|null $resultKeyExtractMethod entity class FQN => method name
+     * @param array{class-string<T>, string}|null $resultKeyExtractMethod entity class FQN, method name
      * @return array<T>
      */
     public function createAll(string $entityFqn, Result $query, ?array $resultKeyExtractMethod = null): array
