@@ -7,6 +7,7 @@ namespace Bpzr\Tests\Fixture\Entity;
 use Bpzr\EntityAdapter\Attribute\Contingent;
 use Bpzr\EntityAdapter\Attribute\DateTimeFormat;
 use Bpzr\EntityAdapter\Attribute\Table;
+use Bpzr\Tests\Fixture\Attribute\OtherTestAttributeFixture;
 use Bpzr\Tests\Fixture\Enum\UserTypeEnum;
 use DateTimeImmutable;
 
@@ -20,6 +21,7 @@ readonly class UserEntityFixture
         private string $password,
         private bool $isSubscriber,
         private float $averageOrderPrice,
+        #[OtherTestAttributeFixture('hello')]
         #[DateTimeFormat('Y-m-d H:i:s')]
         private DateTimeImmutable $registeredAt,
         private UserTypeEnum $userType,

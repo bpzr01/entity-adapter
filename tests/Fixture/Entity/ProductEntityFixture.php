@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace Bpzr\Tests\Fixture\Entity;
 
 use Bpzr\EntityAdapter\Attribute\Table;
+use Bpzr\Tests\Fixture\Attribute\OtherTestAttributeFixture;
 
 #[Table('product')]
+#[OtherTestAttributeFixture('hello')]
 readonly class ProductEntityFixture
 {
     public function __construct(

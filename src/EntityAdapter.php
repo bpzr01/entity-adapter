@@ -11,7 +11,6 @@ use Bpzr\EntityAdapter\ValueConvertor\Abstract\ValueConvertorFactoryInterface;
 use Bpzr\EntityAdapter\ValueConvertor\Abstract\ValueConvertorInterface;
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\Result;
-use ReflectionAttribute;
 use ReflectionClass;
 use ReflectionProperty;
 use Throwable;
@@ -227,12 +226,19 @@ class EntityAdapter
     ): array {
         $subscribedPropAttributeFqn = $valueConvertor->getSubscribedPropertyAttributeFqn();
 
-        return $subscribedPropAttributeFqn === null
-            ? []
-            : array_map(
-                fn (ReflectionAttribute $ra): object => $ra->newInstance(),
-                $reflectionProperty->getAttributes()
-            );
+        if ($subscribedPropAttributeFqn === null) {
+            return [];
+        }
+
+        $subscribedAttributes = [];
+
+        foreach ($reflectionProperty->getAttributes() as $subscribedAttribute) {
+            if ($subscribedAttribute->getName() === $subscribedPropAttributeFqn) {
+                $subscribedAttributes[] = $subscribedAttribute->newInstance();
+            }
+        }
+
+        return $subscribedAttributes;
     }
 
     private function createTableAttribute(ReflectionClass $entityReflection, string $entityFqn): Table
